@@ -1,0 +1,24 @@
+name: build
+permissions:
+  contents: read
+  pull-requests: read
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-go@v6
+      with:
+        go-version: stable
+        cache: false # no point in caching if go.sum is absent
+
+    - name: Build
+      run: |
+        GOOS=windows GOARCH=amd64 go build

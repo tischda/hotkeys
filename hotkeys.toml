@@ -1,0 +1,13 @@
+#:schema https://raw.githubusercontent.com/tischda/hotkeys/refs/heads/main/config/hotkeys.schema.json
+
+# Use single quotes to avoid issues with backslashes in file paths
+
+[keybindings]
+bindings = [
+  { modifiers = "alt", key = "d", action = [ "detach.exe", 'C:\\Program Files\\Alacritty\\alacritty.exe' ] },
+  { modifiers = "alt", key = "a", action = [ 'C:\\Program Files\\Alacritty\\alacritty.exe' ] },
+  { modifiers = "shift+alt", key = "a", action = [ 'alacritty.exe' ] },
+  { modifiers = "ctrl+alt", key = "n", action = [ "notepad.exe" ] },
+  { modifiers = "alt", key = "t", action = [ "cmd", "/c", "C:\\Windows\\SysWOW64\\timeout.exe", "/T", "20", "/NOBREAK" ] },
+  { modifiers = "alt", key = "n", action = [ "cmd", "/c", 'wait.exe', "20" ] },  
+]

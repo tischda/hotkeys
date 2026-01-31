@@ -1,0 +1,29 @@
+# This workflow is adapted from:
+# https://github.com/mvdan/github-actions-golang/blob/master/.github/workflows/test.yml
+
+name: test
+permissions:
+  contents: read
+  pull-requests: read
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v5
+    - uses: actions/setup-go@v6
+      with:
+        go-version: stable
+        cache: false # no point in caching if go.sum is absent
+
+    - name: Run tests with coverage
+      shell: cmd
+      run: go test -v -race -covermode=atomic -coverprofile="coverage.out" ./...
+
+    - name: Upload coverage to Coveralls
+      uses: coverallsapp/github-action@v2
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        path-to-lcov: coverage.out

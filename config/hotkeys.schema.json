@@ -1,0 +1,83 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://example.com/hotkeys.schema.json",
+    "title": "hotkeys.toml schema",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "keybindings"
+    ],
+    "properties": {
+        "keybindings": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "bindings"
+            ],
+            "properties": {
+                "bindings": {
+                    "type": "array",
+                    "description": "List of hotkey bindings.",
+                    "items": {
+                        "$ref": "#/definitions/binding"
+                    },
+                    "minItems": 1
+                }
+            }
+        }
+    },
+    "definitions": {
+        "binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "modifiers",
+                "key",
+                "action"
+            ],
+            "properties": {
+                "modifiers": {
+                    "type": "string",
+                    "description": "Modifier combination, separated by spaces and/or '+'. Supported values: alt, ctrl (or ctlr), shift, super/win.",
+                    "examples": [
+                        "alt",
+                        "shift+alt",
+                        "ctlr+alt"
+                    ]
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Key name (case-insensitive). Examples: a, 1, f1..f12, enter/return, tab, space, esc/escape, left/right/up/down.",
+                    "minLength": 1,
+                    "examples": [
+                        "a",
+                        "f1",
+                        "enter",
+                        "left"
+                    ]
+                },
+                "action": {
+                    "type": "array",
+                    "description": "Command to execute as argv: [executable, arg1, arg2, ...].",
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 1,
+                    "examples": [
+                        [
+                            "notepad.exe"
+                        ],
+                        [
+                            "cmd",
+                            "/c",
+                            "timeout",
+                            "/T",
+                            "3",
+                            "/NOBREAK"
+                        ]
+                    ]
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,6 @@
+﻿*.exe
+coverage.out
+dist/
+releaseinfo
+resource*.syso
+fast-compile.cmd
