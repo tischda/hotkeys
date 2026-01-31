@@ -63,7 +63,7 @@ The configuration is hot-reloaded on every change.
 * When starting alacritty without `detach`, all child terminals launched by the daemon are
   killed when the daemon is stopped. I could not reproduce this with notepad.exe for example.
 
-* Some strange behaviour for console applications, eg. action = [ "wait.exe", "20" ],
+* Some strange behaviour for console applications, eg. `action = [ "wait.exe", "20" ]`,
   nothing seems to happen, but you can check that the process:
 
 ~~~
