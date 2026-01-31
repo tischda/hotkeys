@@ -88,7 +88,7 @@ func wndProc(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
 			log.Printf("Failed to load config %s: %v", configPath, err)
 		}
 	case WM_APP_QUIT:
-		postQuitMessage.Call(0)
+		postQuitMessage.Call(0) //nolint:errcheck
 		return 0
 	default:
 		// Call default window procedure for unhandled messages
@@ -146,8 +146,6 @@ func createHiddenWindow(className string) (uintptr, error) {
 //
 // Parameters:
 //   - hwnd: Handle to the message-only window to register hotkeys against.
-//
-// Returns: none.
 func registerAll(hwnd uintptr) {
 	for _, hk := range hotkeys {
 		r1, _, err := registerHotKey.Call(hwnd, uintptr(hk.Id), uintptr(hk.Modifiers), uintptr(hk.KeyCode))
@@ -163,23 +161,17 @@ func registerAll(hwnd uintptr) {
 //
 // Parameters:
 //   - hwnd: Handle to the message-only window whose hotkeys should be unregistered.
-//
-// Returns: none.
 func unregisterAll(hwnd uintptr) {
 	if hotkeys == nil {
 		return
 	}
 	for _, hk := range hotkeys {
-		unregisterHotKey.Call(hwnd, uintptr(hk.Id))
+		unregisterHotKey.Call(hwnd, uintptr(hk.Id)) //nolint:errcheck
 	}
 	log.Println("Unregistered all hotkeys.")
 }
 
 // messageLoop runs the Windows message loop until WM_QUIT is received.
-//
-// Parameters: none.
-//
-// Returns: none.
 func messageLoop() {
 	var msg MSG
 	for {
@@ -191,7 +183,7 @@ func messageLoop() {
 			log.Printf("GetMessage error: %v", syscall.GetLastError())
 			continue
 		}
-		translateMessage.Call(uintptr(unsafe.Pointer(&msg)))
-		dispatchMessageW.Call(uintptr(unsafe.Pointer(&msg)))
+		translateMessage.Call(uintptr(unsafe.Pointer(&msg))) //nolint:errcheck
+		dispatchMessageW.Call(uintptr(unsafe.Pointer(&msg))) //nolint:errcheck
 	}
 }

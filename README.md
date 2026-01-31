@@ -53,8 +53,8 @@ In `action`, use single quotes to avoid issues with backslashes in file paths.
 
 By default, this file is expected to be here: `%USERPROFILE%\\.config\\hotkeys.toml`.
 
-You can override this with the `HOTKEYS_CONFIG_HOME` environment variable, or by specifying
-the `--config` option via the commande line.
+You can override this by setting the `HOTKEYS_CONFIG_HOME` environment variable,
+or by specifying the `--file` option via the commande line.
 
 The configuration is hot-reloaded on every change.
 
@@ -64,7 +64,7 @@ The configuration is hot-reloaded on every change.
   killed when the daemon is stopped. I could not reproduce this with notepad.exe for example.
 
 * Some strange behaviour for console applications, eg. action = [ "wait.exe", "20" ],
-  nothing seems to happen, but you can check that the process actually started:
+  nothing seems to happen, but you can check that the process:
 
 ~~~
 tasklist /FI "IMAGENAME eq wait.exe"
@@ -74,4 +74,8 @@ Image Name                     PID Session Name        Session#    Mem Usage
 wait.exe                     21452 Console                    1      6,620 K
 ~~~
 
-Workaround: action = [ "cmd", "/c", "wait.exe", "20" ]
+Workaround:
+
+~~~
+action = [ "cmd", "/c", "wait.exe", "20" ]
+~~~

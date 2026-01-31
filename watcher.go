@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/fsnotify/fsnotify"
 	"log"
 	"path/filepath"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 // startConfigWatcher watches configPath for changes and posts reload messages to hwnd.
@@ -48,7 +49,7 @@ func startConfigWatcher(hwnd uintptr, configPath string) (*fsnotify.Watcher, err
 				}
 				last = time.Now()
 				log.Println("Config reload signalled")
-				postMessageW.Call(hwnd, WM_APP_RELOAD, 0, 0)
+				postMessageW.Call(hwnd, WM_APP_RELOAD, 0, 0) //nolint:errcheck
 
 			case err, ok := <-watcher.Errors:
 				if !ok {

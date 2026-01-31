@@ -122,7 +122,7 @@ OPTIONS:
 	if err != nil {
 		log.Fatalf("Failed to create hidden window: %v", err)
 	}
-	defer destroyWindow.Call(uintptr(hwnd))
+	defer destroyWindow.Call(uintptr(hwnd)) //nolint:errcheck
 
 	// Determine config path
 	configPath = os.Getenv(HOTKEYS_CONFIG_HOME_VAR)
@@ -140,7 +140,7 @@ OPTIONS:
 	go func() {
 		<-interrupt
 		log.Println("Exiting...")
-		postMessageW.Call(hwnd, WM_APP_QUIT, 0, 0)
+		postMessageW.Call(hwnd, WM_APP_QUIT, 0, 0) //nolint:errcheck
 	}()
 
 	// Start config file watcher
