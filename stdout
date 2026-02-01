@@ -1,0 +1,13 @@
+[MyService] 2026/02/01 18:16:47 logger.go:35: === LOG FILE INITIALIZED ===
+[MyService] 2026/02/01 18:16:47 main.go:176: Running in console mode with config=%USERPROFILE%\.config\hotkeys.toml, log=stdout
+[MyService] 2026/02/01 18:16:47 main.go:184: Server starting ... 
+2026/02/01 18:16:47 Registered 1: alt+d -> [detach.exe C:\\Program Files\\Alacritty\\alacritty.exe]
+2026/02/01 18:16:47 Registered 2: alt+a -> [C:\\Program Files\\Alacritty\\alacritty.exe]
+2026/02/01 18:16:47 Registered 3: ctrl+alt+n -> [notepad.exe]
+2026/02/01 18:16:47 Registered 4: win+y -> [sublime_text.exe]
+2026/02/01 18:16:47 Registered 5: alt+w -> [cmd /c wait.exe 20]
+2026/02/01 18:16:47 Loaded and registered 5 bindings from C:\Users\Daniel\.config\hotkeys.toml
+2026/02/01 18:17:00 Executing: [C:\\Program Files\\Alacritty\\alacritty.exe]
+2026/02/01 18:17:13 Exiting...
+2026/02/01 18:17:13 Unregistered all hotkeys.
+[MyService] 2026/02/01 18:17:13 main.go:141: Closing log file

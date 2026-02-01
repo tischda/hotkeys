@@ -7,6 +7,20 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
+
+	"golang.org/x/sys/windows/svc"
+)
+
+// default config file path containing the hotkey bindings
+const DEFAULT_CONFIG_PATH = `%USERPROFILE%\.config\hotkeys.toml`
+
+// takes precedence over DEFAULT_CONFIG_PATH above
+const HOTKEYS_CONFIG_HOME_VAR = "HOTKEYS_CONFIG_HOME"
+
+const (
+	SERVICE_NAME        = "Hotkeys"
+	SERVICE_DISPLAYNAME = "Hotkeys Service"
+	SERVICE_DESCRIPTION = "Binds Windows hotkeys to specific actions"
 )
 
 // https://goreleaser.com/cookbooks/using-main.version/
@@ -19,21 +33,18 @@ var (
 
 // flags
 type Config struct {
-	help    bool
-	version bool
-	path    string
+	configPath string
+	logPath    string
+	help       bool
+	version    bool
 }
-
-// default config file path containing the hotkey bindings
-const DEFAULT_CONFIG_PATH = "%USERPROFILE%\\.config\\hotkeys.toml"
-
-// takes precedence over DEFAULT_CONFIG_PATH above
-const HOTKEYS_CONFIG_HOME_VAR = "HOTKEYS_CONFIG_HOME"
 
 func initFlags() *Config {
 	cfg := &Config{}
-	flag.StringVar(&cfg.path, "f", DEFAULT_CONFIG_PATH, "")
-	flag.StringVar(&cfg.path, "file", DEFAULT_CONFIG_PATH, "specify config file path")
+	flag.StringVar(&cfg.configPath, "c", DEFAULT_CONFIG_PATH, "")
+	flag.StringVar(&cfg.configPath, "config", DEFAULT_CONFIG_PATH, "specify config file path")
+	flag.StringVar(&cfg.logPath, "l", "", "")
+	flag.StringVar(&cfg.logPath, "log", "", "specify log output path")
 	flag.BoolVar(&cfg.help, "?", false, "")
 	flag.BoolVar(&cfg.help, "help", false, "displays this help message")
 	flag.BoolVar(&cfg.version, "v", false, "")
@@ -41,6 +52,20 @@ func initFlags() *Config {
 	return cfg
 }
 
+var configPath string
+
+// Hotkey interanl representation
+type Hotkey struct {
+	Id        uint32   // Unique identifier for the hotkey required by RegisterHotKey
+	Modifiers uint32   // Translated Modifier keys (Alt, Ctrl, Shift, Win)
+	KeyCode   uint16   // Translated Virtual-Key code
+	KeyString string   // Original key string for reference
+	Action    []string // Command to execute
+}
+
+var hotkeys []Hotkey // global because needed in wndProc
+
+// Data structures for hotkeys configuration file
 type ConfigFile struct {
 	Keybindings KeybindingsConfig `toml:"keybindings"`
 }
@@ -55,42 +80,30 @@ type Binding struct {
 	Action    []string `toml:"action"`
 }
 
-type Hotkey struct {
-	Id        uint32   // Unique identifier for the hotkey required by RegisterHotKey
-	Modifiers uint32   // Translated Modifier keys (Alt, Ctrl, Shift, Win)
-	KeyCode   uint16   // Translated Virtual-Key code
-	KeyString string   // Original key string for reference
-	Action    []string // Command to execute
-}
-
-const (
-	ModAlt   = 0x0001
-	ModCtrl  = 0x0002
-	ModShift = 0x0004
-	ModSuper = 0x0008
-)
-
-// Global slice of hotkeys (global because needed in wndProc)
-var hotkeys []Hotkey
-var configPath string
-
 // main starts the hotkey daemon, loads config, and blocks in the Windows message loop.
 func main() {
 	log.SetFlags(0)
 	cfg := initFlags()
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage: "+name+` [OPTIONS]
+		fmt.Fprintln(os.Stderr, "Usage: "+name+` [COMMANDS] [OPTIONS]
 
-Starts a hotkey daemon that binds hotkeys such as CTRL+A to an action. The bindings
-are defined in a TOML config file (hot-reload supported).
+Starts a hotkey daemon that binds hotkeys such as CTRL+A to an action. The
+bindings are defined in a TOML config file (hot-reload supported).
 
-The processes executed by the daemon will inherit the current environment and update
-USER and SYSTEM environment variables from the Windows registry.
+The processes executed by the daemon will inherit the current environment
+and update USER and SYSTEM environment variables from the Windows registry.
+
+COMMANDS:
+
+  install    installs the application as a Windows service
+  remove     removes the Windows service
 
 OPTIONS:
 
-  -f, --file path
-        specify config file path (default '%USERPROFILE%\.config\hotkeys.toml')
+  -c, --config path
+        specify config file path (default '`+DEFAULT_CONFIG_PATH+`')
+  -l, --log path
+        specify log output path (default stdout)
   -?, --help
         display this help message
   -v, --version
@@ -108,14 +121,77 @@ OPTIONS:
 		return
 	}
 
-	if flag.NArg() > 0 {
-		flag.Usage()
-		os.Exit(1)
+	// Re-parse flags after the 'install' subcommand
+	if flag.Arg(0) == "install" {
+		subFlags := flag.NewFlagSet("install", flag.ExitOnError)
+		subFlags.StringVar(&cfg.configPath, "config", DEFAULT_CONFIG_PATH, "")
+		subFlags.StringVar(&cfg.logPath, "log", "", "")
+		subFlags.Parse(os.Args[2:])
 	}
 
-	runtime.LockOSThread()
+	// Determine config path
+	configPath = os.Getenv(HOTKEYS_CONFIG_HOME_VAR)
+	if configPath == "" {
+		configPath = expandVariable(cfg.configPath)
+	}
 
-	log.Println("Starting hotkey daemon...")
+	// Subcommand logic: install/remove
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "install":
+			if err := installService(configPath, cfg.logPath); err != nil {
+				log.Fatalf("install failed: %v", err)
+			}
+			log.Println("Service installed.")
+			return
+
+		case "remove":
+			if err := removeService(); err != nil {
+				log.Fatalf("remove failed: %v", err)
+			}
+			log.Println("Service removed.")
+			return
+		case "--config", "--log":
+			// Handled above
+		default:
+			log.Fatalf("unknown command: %s", os.Args[1])
+		}
+	}
+
+	// Setup logging
+	logFile, err := setupLogging(cfg)
+	if err != nil {
+		log.Fatalf("Failed to setup logging: %v", err)
+	}
+	defer func() {
+		if logFile != nil {
+			logger.Println("Closing log file")
+			logFile.Close()
+		}
+	}()
+
+	// If we're here, no install/remove: run as service or console.
+	isService, err := svc.IsWindowsService()
+	if err != nil {
+		logger.Fatalf("IsWindowsService: %v", err)
+	}
+
+	if isService {
+		logger.Printf("Running as service")
+		runService()
+	} else {
+		// Fallback for console mode (dev/testing)
+		logger.Printf("Running in console mode")
+		runServer()
+	}
+
+}
+
+// runServer is your actual server logic.
+func runServer() {
+	logger.Printf("Server starting ... ")
+
+	runtime.LockOSThread()
 
 	var err error
 	hwnd, err := createHiddenWindow("HotkeyWindow")
@@ -124,12 +200,7 @@ OPTIONS:
 	}
 	defer destroyWindow.Call(uintptr(hwnd)) //nolint:errcheck
 
-	// Determine config path
-	configPath = os.Getenv(HOTKEYS_CONFIG_HOME_VAR)
-	if configPath == "" {
-		configPath = expandVariable(cfg.path)
-	}
-
+	// Initial config load
 	if err := reloadHotkeys(hwnd); err != nil {
 		log.Fatalf("Failed to load config %s: %v", configPath, err)
 	}
@@ -151,6 +222,16 @@ OPTIONS:
 	if watcher != nil {
 		defer watcher.Close() //nolint:errcheck
 	}
+
+	// TODO: 1. Implement logging to file (instead of console)
+	// TODO: 2. Find a way to stop the deamon gracefully (RPC ?) other than:
+	// 				tasklist /FI "IMAGENAME eq hotkeys.exe"
+	//				taskkill /f /im hotkeys.exe
+	// TODO: 3. Implement a system tray icon with context menu
+	// TODO: 4. Investigate running as a Windows Service
+	// TODO: 5. Make this a configuration option in the TOML config file
+	// Optional: detach from console to avoid showing a console window
+	// detachConsole()
 
 	// Listen for key presses
 	messageLoop()

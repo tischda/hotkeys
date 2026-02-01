@@ -4,6 +4,13 @@ import (
 	"strings"
 )
 
+const (
+	ModAlt   = 0x0001
+	ModCtrl  = 0x0002
+	ModShift = 0x0004
+	ModSuper = 0x0008
+)
+
 // parseHotkey converts a modifiers+key string pair into a Hotkey with translated key codes.
 //
 // Parameters:

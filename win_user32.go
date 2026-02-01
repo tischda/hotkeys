@@ -26,6 +26,7 @@ var (
 	createWindowExW  = user32.NewProc("CreateWindowExW")
 	destroyWindow    = user32.NewProc("DestroyWindow")
 
+	procFreeConsole  = kernel32.NewProc("FreeConsole")
 	getModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 )
 
@@ -58,6 +59,10 @@ type WNDCLASSEX struct {
 	MenuName   *uint16
 	ClassName  *uint16
 	IconSm     syscall.Handle
+}
+
+func detachConsole() {
+	procFreeConsole.Call()
 }
 
 // wndProc handles window messages for the hidden message-only window.
