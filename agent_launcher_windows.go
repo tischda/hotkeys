@@ -15,18 +15,30 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// Services cannot register global hotkeys like Alt+D because they lack access to user
+// input devices and desktops in user sessions (Session 1+).
+// Error 1459 (ERROR_REQUIRES_INTERACTIVE_WINDOW_STATION) confirms the issue.
+
+// Solutions
+// Launch a separate user-mode app: From the service, use CreateProcessAsUser to start
+// a helper executable in the active user session (query tokens via WTSEnumerateSessions/Ex),
+// where it registers the hotkey and communicates back via IPC (named pipes or shared memory)
+//
+//
+//
+//
+
 // launchAgentInActiveSession starts a helper instance of this executable in the active
 // interactive user session so it can register hotkeys on the user's desktop.
 //
 // Parameters:
 //   - configPath: Path to the config file to pass through to the agent.
 //   - logPath: Optional log path to pass through to the agent.
-//   - ipcPipePath: Optional named pipe path (e.g. \\.\pipe\hotkeys-123) for agent->service messages.
 //
 // Returns:
 //   - *windows.ProcessInformation: Handles and IDs for the created process.
 //   - error: Non-nil if no interactive session is available or process creation fails.
-func launchAgentInActiveSession(configPath, logPath, ipcPipePath string) (*windows.ProcessInformation, error) {
+func launchAgentInActiveSession(configPath, logPath string) (*windows.ProcessInformation, error) {
 	sessionID := windows.WTSGetActiveConsoleSessionId()
 	if sessionID == 0xFFFFFFFF {
 		return nil, errors.New("no active console session")
@@ -63,9 +75,6 @@ func launchAgentInActiveSession(configPath, logPath, ipcPipePath string) (*windo
 	env, err := primary.Environ(false)
 	if err != nil {
 		return nil, fmt.Errorf("token environ: %w", err)
-	}
-	if ipcPipePath != "" {
-		env = append(env, fmt.Sprintf("%s=%s", hotkeysIPCPipeEnvVar, ipcPipePath))
 	}
 	sort.Strings(env)
 	envBlock, err := encodeEnvBlock(env)

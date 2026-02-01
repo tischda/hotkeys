@@ -27,14 +27,7 @@ func (m *myService) Execute(args []string, r <-chan svc.ChangeRequest, s chan<- 
 	// Log to file or stdout
 	logger.Printf("Execute with config=%s, log=%s", m.config, m.log)
 
-	pipePath, stopIPC, err := startIPCServer()
-	if err != nil {
-		logger.Printf("IPC server disabled: %v", err)
-		stopIPC = func() {}
-	}
-	defer stopIPC()
-
-	pi, err := launchAgentInActiveSession(m.config, m.log, pipePath)
+	pi, err := launchAgentInActiveSession(m.config, m.log)
 	if err != nil {
 		logger.Printf("Failed to launch agent in active session: %v", err)
 		s <- svc.Status{State: svc.Stopped}

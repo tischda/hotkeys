@@ -191,9 +191,6 @@ OPTIONS:
 func runServer() {
 	logger.Printf("Server starting ... ")
 
-	ipcInitFromEnv()
-	defer ipcClose()
-
 	runtime.LockOSThread()
 
 	var err error
