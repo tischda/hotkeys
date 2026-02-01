@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
 	"golang.org/x/sys/windows/svc/debug"
 	"golang.org/x/sys/windows/svc/mgr"
@@ -26,8 +27,24 @@ func (m *myService) Execute(args []string, r <-chan svc.ChangeRequest, s chan<- 
 	// Log to file or stdout
 	logger.Printf("Execute with config=%s, log=%s", m.config, m.log)
 
-	// Start your server in a goroutine
-	go runServer()
+	pipePath, stopIPC, err := startIPCServer()
+	if err != nil {
+		logger.Printf("IPC server disabled: %v", err)
+		stopIPC = func() {}
+	}
+	defer stopIPC()
+
+	pi, err := launchAgentInActiveSession(m.config, m.log, pipePath)
+	if err != nil {
+		logger.Printf("Failed to launch agent in active session: %v", err)
+		s <- svc.Status{State: svc.Stopped}
+		return false, 1
+	}
+	defer func() {
+		// Best-effort cleanup.
+		_ = windows.CloseHandle(pi.Thread)
+		_ = windows.CloseHandle(pi.Process)
+	}()
 
 	s <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
@@ -37,8 +54,8 @@ loop:
 		case svc.Interrogate:
 			s <- c.CurrentStatus
 		case svc.Stop, svc.Shutdown:
-			// TODO: trigger graceful shutdown of your server.
 			logger.Println("Service received stop signal")
+			_ = windows.TerminateProcess(pi.Process, 0)
 			break loop
 		default:
 		}
@@ -116,7 +133,7 @@ func removeService() error {
 }
 
 // runService starts the Windows service handler.
-func runService() {
+func runService(logf string) {
 	var err error
 	var elog debug.Log
 
@@ -125,7 +142,7 @@ func runService() {
 
 	ms := &myService{
 		config: configPath,
-		log:    "c:\\temp\\hotkeys-hardcoded.log",
+		log:    logf,
 	}
 
 	err = svc.Run(SERVICE_NAME, ms)

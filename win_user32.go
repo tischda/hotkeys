@@ -26,7 +26,6 @@ var (
 	createWindowExW  = user32.NewProc("CreateWindowExW")
 	destroyWindow    = user32.NewProc("DestroyWindow")
 
-	procFreeConsole  = kernel32.NewProc("FreeConsole")
 	getModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 )
 
@@ -61,10 +60,6 @@ type WNDCLASSEX struct {
 	IconSm     syscall.Handle
 }
 
-func detachConsole() {
-	procFreeConsole.Call()
-}
-
 // wndProc handles window messages for the hidden message-only window.
 //
 // Parameters:
@@ -82,6 +77,7 @@ func wndProc(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
 		for _, hk := range hotkeys {
 			if hk.Id == id {
 				log.Printf("Executing: %v", hk.Action)
+				ipcSendf("hotkey id=%d key=%s action=%v", hk.Id, hk.KeyString, hk.Action)
 				if _, err := executeCommand(hk.Action); err != nil {
 					log.Println("ERROR:", err)
 				}
@@ -89,6 +85,7 @@ func wndProc(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
 			}
 		}
 	case WM_APP_RELOAD:
+		ipcSendf("config reload")
 		if err := reloadHotkeys(uintptr(hwnd)); err != nil {
 			log.Printf("Failed to load config %s: %v", configPath, err)
 		}

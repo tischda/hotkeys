@@ -178,7 +178,7 @@ OPTIONS:
 
 	if isService {
 		logger.Printf("Running as service")
-		runService()
+		runService(cfg.logPath)
 	} else {
 		// Fallback for console mode (dev/testing)
 		logger.Printf("Running in console mode")
@@ -190,6 +190,9 @@ OPTIONS:
 // runServer is your actual server logic.
 func runServer() {
 	logger.Printf("Server starting ... ")
+
+	ipcInitFromEnv()
+	defer ipcClose()
 
 	runtime.LockOSThread()
 
