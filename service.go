@@ -8,8 +8,13 @@ import (
 
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/svc"
-	"golang.org/x/sys/windows/svc/debug"
 	"golang.org/x/sys/windows/svc/mgr"
+)
+
+const (
+	SERVICE_NAME        = "Hotkeys"
+	SERVICE_DISPLAYNAME = "Hotkeys Service"
+	SERVICE_DESCRIPTION = "Binds Windows hotkeys to specific actions"
 )
 
 // service struct implementing svc.Handler
@@ -93,11 +98,16 @@ func installService(cfg, logf string) error {
 	}
 
 	// args here become part of the service command line when started:
-	// myservice.exe --config cfg --log logf
-	s, err := m.CreateService(SERVICE_NAME, exePath, config,
-		"--config", cfg,
-		"--log", logf,
-	)
+	// hotkeys.exe --config cfg --log logf
+	var s *mgr.Service
+	if logf == "" {
+		s, err = m.CreateService(SERVICE_NAME, exePath, config, "--config", cfg)
+	} else {
+		s, err = m.CreateService(SERVICE_NAME, exePath, config,
+			"--config", cfg,
+			"--log", logf,
+		)
+	}
 	if err != nil {
 		return fmt.Errorf("cannot create service: %w", err)
 	}
@@ -128,10 +138,6 @@ func removeService() error {
 // runService starts the Windows service handler.
 func runService(logf string) {
 	var err error
-	var elog debug.Log
-
-	elog = debug.New(SERVICE_NAME)
-	elog.Info(1, "Starting service")
 
 	ms := &myService{
 		config: configPath,
@@ -140,10 +146,8 @@ func runService(logf string) {
 
 	err = svc.Run(SERVICE_NAME, ms)
 	if err != nil {
-		elog.Error(1, fmt.Sprintf("svc.Run failed: %v", err))
 		logger.Printf("svc.Run failed: %v", err)
 		return
 	}
-	elog.Info(1, "Service stopped")
 	logger.Println("Service stopped normally")
 }

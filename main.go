@@ -6,22 +6,18 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 
 	"golang.org/x/sys/windows/svc"
 )
 
 // default config file path containing the hotkey bindings
-const DEFAULT_CONFIG_PATH = `%USERPROFILE%\.config\hotkeys.toml`
+const DEFAULT_CONFIG_FILE = "hotkeys.toml"
+const DEFAULT_CONFIG_PATH = `%USERPROFILE%\.config\` + DEFAULT_CONFIG_FILE
 
 // takes precedence over DEFAULT_CONFIG_PATH above
 const HOTKEYS_CONFIG_HOME_VAR = "HOTKEYS_CONFIG_HOME"
-
-const (
-	SERVICE_NAME        = "Hotkeys"
-	SERVICE_DISPLAYNAME = "Hotkeys Service"
-	SERVICE_DESCRIPTION = "Binds Windows hotkeys to specific actions"
-)
 
 // https://goreleaser.com/cookbooks/using-main.version/
 var (
@@ -52,6 +48,7 @@ func initFlags() *Config {
 	return cfg
 }
 
+// full path to the config file (including filename)
 var configPath string
 
 // Hotkey interanl representation
@@ -89,9 +86,6 @@ func main() {
 
 Starts a hotkey daemon that binds hotkeys such as CTRL+A to an action. The
 bindings are defined in a TOML config file (hot-reload supported).
-
-The processes executed by the daemon will inherit the current environment
-and update USER and SYSTEM environment variables from the Windows registry.
 
 COMMANDS:
 
@@ -131,7 +125,9 @@ OPTIONS:
 
 	// Determine config path
 	configPath = os.Getenv(HOTKEYS_CONFIG_HOME_VAR)
-	if configPath == "" {
+	if configPath != "" {
+		configPath = filepath.Join(configPath, DEFAULT_CONFIG_FILE)
+	} else {
 		configPath = expandVariable(cfg.configPath)
 	}
 
@@ -196,13 +192,13 @@ func runServer() {
 	var err error
 	hwnd, err := createHiddenWindow("HotkeyWindow")
 	if err != nil {
-		log.Fatalf("Failed to create hidden window: %v", err)
+		logger.Fatalf("Failed to create hidden window: %v", err)
 	}
 	defer destroyWindow.Call(uintptr(hwnd)) //nolint:errcheck
 
 	// Initial config load
 	if err := reloadHotkeys(hwnd); err != nil {
-		log.Fatalf("Failed to load config %s: %v", configPath, err)
+		logger.Fatalf("Failed to load config %s: %v", configPath, err)
 	}
 
 	// Handle graceful shutdown on Ctrl+C
@@ -210,26 +206,21 @@ func runServer() {
 	signal.Notify(interrupt, os.Interrupt)
 	go func() {
 		<-interrupt
-		log.Println("Exiting...")
+		logger.Println("Exiting...")
 		postMessageW.Call(hwnd, WM_APP_QUIT, 0, 0) //nolint:errcheck
 	}()
 
 	// Start config file watcher
 	watcher, err := startConfigWatcher(hwnd, configPath)
 	if err != nil {
-		log.Printf("Config watcher disabled: %v", err)
+		logger.Printf("Config watcher disabled: %v", err)
 	}
 	if watcher != nil {
 		defer watcher.Close() //nolint:errcheck
 	}
 
-	// TODO: 1. Implement logging to file (instead of console)
-	// TODO: 2. Find a way to stop the deamon gracefully (RPC ?) other than:
-	// 				tasklist /FI "IMAGENAME eq hotkeys.exe"
-	//				taskkill /f /im hotkeys.exe
 	// TODO: 3. Implement a system tray icon with context menu
-	// TODO: 4. Investigate running as a Windows Service
-	// TODO: 5. Make this a configuration option in the TOML config file
+	// TODO: 5. Make this a configuration option in the TOML config file:
 	// Optional: detach from console to avoid showing a console window
 	// detachConsole()
 
