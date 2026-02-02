@@ -120,7 +120,10 @@ OPTIONS:
 		subFlags := flag.NewFlagSet("install", flag.ExitOnError)
 		subFlags.StringVar(&cfg.configPath, "config", DEFAULT_CONFIG_PATH, "")
 		subFlags.StringVar(&cfg.logPath, "log", "", "")
-		subFlags.Parse(os.Args[2:])
+		if err := subFlags.Parse(os.Args[2:]); err != nil {
+			flag.Usage()
+			os.Exit(1)
+		}
 	}
 
 	// Determine config path
@@ -162,7 +165,7 @@ OPTIONS:
 	defer func() {
 		if logFile != nil {
 			logger.Println("Closing log file")
-			logFile.Close()
+			logFile.Close() //nolint:errcheck
 		}
 	}()
 
