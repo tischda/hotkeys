@@ -87,7 +87,7 @@ In `action`, use single quotes to avoid issues with backslashes in file paths.
   run as a service). I could not reproduce this with notepad.exe.
 
 * Some strange behaviour for console applications, eg. `action = [ "wait.exe", "20" ]`,
-  nothing seems to happen, but the process is actaully running:
+  nothing seems to happen, but the process is actually running:
 
 ~~~
 tasklist /FI "IMAGENAME eq wait.exe"
