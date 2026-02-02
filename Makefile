@@ -30,7 +30,7 @@ build: goversioninfo
 
 ## watch: watch for changes and rebuild (a first build is necessary to create .syso files)
 watch: build
-	@cmd /c start watchexec.exe --postpone --timings --exts go \""$(FASTBUILD_CMD)"\" &
+	@start watchexec.exe --postpone --timings --exts go \""$(FASTBUILD_CMD)"\" &
 
 goversioninfo:
 	@goversioninfo -product-name $(PROJECT_NAME) \
