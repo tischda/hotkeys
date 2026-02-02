@@ -40,5 +40,3 @@ func setupLogging(cfg *Config) (*os.File, error) {
 	}
 	return logFile, nil
 }
-
-// TODO: use logger throughout the code instead of log package directly
