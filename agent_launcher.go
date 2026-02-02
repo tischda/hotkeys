@@ -53,7 +53,7 @@ func launchAgentInActiveSession(configPath, logPath string) (*windows.ProcessInf
 	if err != nil {
 		return nil, err
 	}
-	defer primary.Close()
+	defer primary.Close() //nolint:errcheck
 
 	// Use the user's environment variables so the agent behaves like a normal app
 	// (e.g., user profile paths, PATH, etc.).
@@ -103,7 +103,7 @@ func primaryTokenForSession(sessionID uint32) (windows.Token, error) {
 	if err := windows.WTSQueryUserToken(sessionID, &token); err != nil {
 		return 0, fmt.Errorf("WTSQueryUserToken(session=%d): %w", sessionID, err)
 	}
-	defer token.Close()
+	defer token.Close() //nolint:errcheck
 
 	// WTSQueryUserToken yields an impersonation token; CreateProcessAsUser needs a primary.
 	var primary windows.Token

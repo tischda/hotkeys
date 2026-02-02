@@ -83,11 +83,11 @@ func installService(cfg, logf string) error {
 	if err != nil {
 		return fmt.Errorf("cannot connect to service manager: %w", err)
 	}
-	defer m.Disconnect()
+	defer m.Disconnect() //nolint:errcheck
 
 	// Check if service already exists
 	if s, err := m.OpenService(SERVICE_NAME); err == nil {
-		s.Close()
+		s.Close() //nolint:errcheck
 		return fmt.Errorf("service %s already exists", SERVICE_NAME)
 	}
 
@@ -111,7 +111,7 @@ func installService(cfg, logf string) error {
 	if err != nil {
 		return fmt.Errorf("cannot create service: %w", err)
 	}
-	defer s.Close()
+	defer s.Close() //nolint:errcheck
 	return nil
 }
 
@@ -121,13 +121,13 @@ func removeService() error {
 	if err != nil {
 		return fmt.Errorf("cannot connect to service manager: %w", err)
 	}
-	defer m.Disconnect()
+	defer m.Disconnect() //nolint:errcheck
 
 	s, err := m.OpenService(SERVICE_NAME)
 	if err != nil {
 		return fmt.Errorf("service %s is not installed: %w", SERVICE_NAME, err)
 	}
-	defer s.Close()
+	defer s.Close() //nolint:errcheck
 
 	if err := s.Delete(); err != nil {
 		return fmt.Errorf("failed to delete service: %w", err)
