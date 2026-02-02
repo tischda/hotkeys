@@ -4,10 +4,31 @@
 
 [keybindings]
 bindings = [
-  { modifiers = "alt", key = "d", action = [ "detach.exe", 'C:\\Program Files\\Alacritty\\alacritty.exe' ] },
-  { modifiers = "alt", key = "a", action = [ 'C:\\Program Files\\Alacritty\\alacritty.exe' ] },
-  { modifiers = "shift+alt", key = "a", action = [ 'alacritty.exe' ] },
-  { modifiers = "ctrl+alt", key = "n", action = [ "notepad.exe" ] },
-  { modifiers = "alt", key = "t", action = [ "cmd", "/c", "C:\\Windows\\SysWOW64\\timeout.exe", "/T", "20", "/NOBREAK" ] },
-  { modifiers = "alt", key = "n", action = [ "cmd", "/c", 'wait.exe', "20" ] },
+    { modifiers = 'alt', key = 'd', action = [
+        'detach.exe',
+        'C:\Program Files\Alacritty\alacritty.exe',
+    ] },
+    { modifiers = 'alt', key = 'a', action = [
+        'C:\Program Files\Alacritty\alacritty.exe',
+    ] },
+    { modifiers = 'shift+alt', key = 'a', action = [
+        'alacritty.exe',
+    ] },
+    { modifiers = 'ctrl+alt', key = 'n', action = [
+        'notepad.exe',
+    ] },
+    { modifiers = 'alt', key = 't', action = [
+        'cmd',
+        '/c',
+        'C:\Windows\SysWOW64\timeout.exe',
+        '/T',
+        '10',
+        '/NOBREAK',
+    ] },
+    { modifiers = 'alt', key = 'n', action = [
+        'cmd',
+        '/c',
+        'wait.exe',
+        '10',
+    ] },
 ]

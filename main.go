@@ -219,11 +219,6 @@ func runServer() {
 		defer watcher.Close() //nolint:errcheck
 	}
 
-	// TODO: 3. Implement a system tray icon with context menu
-	// TODO: 5. Make this a configuration option in the TOML config file:
-	// Optional: detach from console to avoid showing a console window
-	// detachConsole()
-
 	// Listen for key presses
 	messageLoop()
 
