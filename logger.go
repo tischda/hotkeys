@@ -2,12 +2,15 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 )
 
-var logger *log.Logger
+// logger is safe to use before setupLogging runs (e.g., in tests).
+// setupLogging overwrites this with the desired output and formatting.
+var logger = log.New(io.Discard, "", 0)
 
 // Setup file logger that works in BOTH service and console mode - stdout if --log empty
 func setupLogging(cfg *Config) (*os.File, error) {
@@ -32,7 +35,7 @@ func setupLogging(cfg *Config) (*os.File, error) {
 		}
 		logFile = f // this one needs to be closed later (not stdout)
 		log.SetOutput(f)
-		logger = log.New(f, "[MyService] ", log.LstdFlags|log.Lshortfile)
+		logger = log.New(f, "["+SERVICE_NAME+"] ", log.LstdFlags)
 		logger.Println("=== LOG INITIALIZED ===")
 	}
 	return logFile, nil

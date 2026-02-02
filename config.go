@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
@@ -55,7 +54,7 @@ func reloadHotkeys(hwnd uintptr) error {
 	// 3. Register all hotkeys
 	registerAll(hwnd)
 
-	log.Printf("Loaded and registered %d bindings from %s", len(hotkeys), configPath)
+	logger.Printf("Loaded and registered %d bindings from %s", len(hotkeys), configPath)
 	return nil
 }
 
@@ -78,7 +77,7 @@ func loadConfig(path string) ([]Hotkey, error) {
 	for _, binding := range config.Keybindings.Bindings {
 		hk := parseHotkey(binding.Modifiers, binding.Key)
 		if hk.KeyCode == '?' {
-			log.Printf("Skipping invalid hotkey: %s + %s", binding.Modifiers, binding.Key)
+			logger.Printf("Skipping invalid hotkey: %s + %s", binding.Modifiers, binding.Key)
 			continue
 		}
 		keyList = append(keyList, Hotkey{

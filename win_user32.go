@@ -3,7 +3,6 @@
 package main
 
 import (
-	"log"
 	"syscall"
 	"unsafe"
 )
@@ -76,16 +75,16 @@ func wndProc(hwnd syscall.Handle, msg uint32, wparam, lparam uintptr) uintptr {
 		id := uint32(wparam)
 		for _, hk := range hotkeys {
 			if hk.Id == id {
-				log.Printf("Executing: %v", hk.Action)
+				logger.Printf("Executing: %v", hk.Action)
 				if _, err := executeCommand(hk.Action); err != nil {
-					log.Println("ERROR:", err)
+					logger.Println("ERROR:", err)
 				}
 				break
 			}
 		}
 	case WM_APP_RELOAD:
 		if err := reloadHotkeys(uintptr(hwnd)); err != nil {
-			log.Printf("Failed to load config %s: %v", configPath, err)
+			logger.Printf("Failed to load config %s: %v", configPath, err)
 		}
 	case WM_APP_QUIT:
 		postQuitMessage.Call(0) //nolint:errcheck
@@ -150,9 +149,9 @@ func registerAll(hwnd uintptr) {
 	for _, hk := range hotkeys {
 		r1, _, err := registerHotKey.Call(hwnd, uintptr(hk.Id), uintptr(hk.Modifiers), uintptr(hk.KeyCode))
 		if r1 == 0 {
-			log.Printf("Failed to register hotkey %d (%s): %v", hk.Id, hk.KeyString, err)
+			logger.Printf("Failed to register hotkey %d (%s): %v", hk.Id, hk.KeyString, err)
 		} else {
-			log.Printf("Registered %d: %s -> %v", hk.Id, hk.KeyString, hk.Action)
+			logger.Printf("Registered %d: %s -> %v", hk.Id, hk.KeyString, hk.Action)
 		}
 	}
 }
@@ -168,7 +167,7 @@ func unregisterAll(hwnd uintptr) {
 	for _, hk := range hotkeys {
 		unregisterHotKey.Call(hwnd, uintptr(hk.Id)) //nolint:errcheck
 	}
-	log.Println("Unregistered all hotkeys.")
+	logger.Println("Unregistered all hotkeys.")
 }
 
 // messageLoop runs the Windows message loop until WM_QUIT is received.
@@ -180,7 +179,7 @@ func messageLoop() {
 			break
 		}
 		if int32(r) == -1 {
-			log.Printf("GetMessage error: %v", syscall.GetLastError())
+			logger.Printf("GetMessage error: %v", syscall.GetLastError())
 			continue
 		}
 		translateMessage.Call(uintptr(unsafe.Pointer(&msg))) //nolint:errcheck

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"path/filepath"
 	"time"
 
@@ -48,14 +47,14 @@ func startConfigWatcher(hwnd uintptr, configPath string) (*fsnotify.Watcher, err
 					continue
 				}
 				last = time.Now()
-				log.Println("Config reload signalled")
+				logger.Println("Config reload signalled")
 				postMessageW.Call(hwnd, WM_APP_RELOAD, 0, 0) //nolint:errcheck
 
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
 				}
-				log.Printf("Config watcher error: %v", err)
+				logger.Printf("Config watcher error: %v", err)
 			}
 		}
 	}()
