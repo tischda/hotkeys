@@ -34,7 +34,7 @@ var (
 	getConsoleWindow = kernel32.NewProc("GetConsoleWindow")
 )
 
-const swMinimize = 6
+const swHide = 0
 
 type MSG struct {
 	HWnd    uintptr
@@ -195,13 +195,13 @@ func messageLoop() {
 	}
 }
 
-// Task Scheduler should minimize console.
+// Task Scheduler should hide console.
 func minimizeConsoleWindow() {
 	hwnd, _, _ := getConsoleWindow.Call()
 	if hwnd == 0 {
 		return
 	}
-	showWindow.Call(hwnd, uintptr(swMinimize)) //nolint:errcheck
+	showWindow.Call(hwnd, uintptr(swHide)) //nolint:errcheck
 }
 
 // Theres should only be one instance of the hotkeys server running at a time.
