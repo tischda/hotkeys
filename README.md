@@ -8,10 +8,9 @@
 # hotkeys
 
 Starts a hotkey daemon that binds hotkeys such as `CTRL+A` to an action. The bindings
-are defined a TOML config file (hot-reload supported).
+are defined in a TOML config file (hot-reload supported).
 
-The deamon can run as a console application or be installed as a Windows
-service using the 'install' command.
+The daemon should be run in user mode as a background process.
 
 The processes executed by the daemon will inherit the current environment and update
 USER and SYSTEM environment variables from the Windows registry.
@@ -22,34 +21,22 @@ USER and SYSTEM environment variables from the Windows registry.
 go install github.com/tischda/hotkeys@latest
 ~~~
 
-Install and run as service:
+Run with file logging:
 ~~~
-hotkeys install --log=%TEMP%
-sc start hotkeys
-sc query hotkeys
+hotkeys --log=%TEMP%\hotkeys.log
 ~~~
-
-When `--log` is set, it is treated as a directory and logs are split per process:
-
-- `hotkeys-service.log`
-- `hotkeys-agent.log`
 
 ## Usage
 
 ~~~
-Usage: hotkeys [COMMANDS] [OPTIONS]
-
-COMMANDS:
-
-  install    installs the application as a Windows service
-  remove     removes the Windows service
+Usage: hotkeys [OPTIONS]
 
 OPTIONS:
 
   -c, --config path
         specify config file path (default '%USERPROFILE%\.config\hotkeys.toml')
-  -l, --log dir
-        specify log output directory (default stdout)
+  -l, --log path
+        specify log output file path (default stdout)
   -?, --help
         display this help message
   -v, --version
@@ -87,9 +74,8 @@ In `action`, use single quotes to avoid issues with backslashes in file paths.
 
 ## Known issues
 
-* When starting alacritty without `cmd /c`, all child terminals launched by the
-  daemon are killed when the console version of the daemon is stopped (not when
-  run as a service). I could not reproduce this with notepad.exe.
+* When starting alacritty without `cmd /c`, all child terminals launched by hotkeys
+      are killed when the daemon is stopped. I could not reproduce this with notepad.exe.
 
 * Some strange behaviour for console applications, eg. `action = [ "wait.exe", "20" ]`,
   nothing seems to happen, but the process is actually running:

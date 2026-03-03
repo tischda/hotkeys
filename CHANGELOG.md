@@ -2,9 +2,10 @@
 
 ## [v1.2.0] - March 2026
 
-* Fix -c and -l not working
-* Fix service launch failture due to privilege issue
-* Separate log files for hotkeys service and agent (--log now expects a directory)
+* Removed service execution for the following reasons:
+    - does not make sense for interactive session / logged‑in user
+    - security concerns
+    - complexity
 
 ## [v1.1.0] - 2 February 2026
 

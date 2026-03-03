@@ -11,5 +11,3 @@ github.com/fsnotify/fsnotify/internal
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 golang.org/x/sys/windows/registry
-golang.org/x/sys/windows/svc
-golang.org/x/sys/windows/svc/mgr

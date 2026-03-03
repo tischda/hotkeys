@@ -8,8 +8,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-
-	"golang.org/x/sys/windows/svc"
 )
 
 // default config file path containing the hotkey bindings
@@ -40,7 +38,7 @@ func initFlags() *Config {
 	flag.StringVar(&cfg.configPath, "c", DEFAULT_CONFIG_PATH, "")
 	flag.StringVar(&cfg.configPath, "config", DEFAULT_CONFIG_PATH, "specify config file path")
 	flag.StringVar(&cfg.logPath, "l", "", "")
-	flag.StringVar(&cfg.logPath, "log", "", "specify log output directory")
+	flag.StringVar(&cfg.logPath, "log", "", "specify log output file path")
 	flag.BoolVar(&cfg.help, "?", false, "")
 	flag.BoolVar(&cfg.help, "help", false, "displays this help message")
 	flag.BoolVar(&cfg.version, "v", false, "")
@@ -51,7 +49,7 @@ func initFlags() *Config {
 // full path to the config file (including filename)
 var configPath string
 
-// Hotkey interanl representation
+// Hotkey internal representation
 type Hotkey struct {
 	Id        uint32   // Unique identifier for the hotkey required by RegisterHotKey
 	Modifiers uint32   // Translated Modifier keys (Alt, Ctrl, Shift, Win)
@@ -82,22 +80,17 @@ func main() {
 	log.SetFlags(0)
 	cfg := initFlags()
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage: "+name+` [COMMANDS] [OPTIONS]
+		fmt.Fprintln(os.Stderr, "Usage: "+name+` [OPTIONS]
 
 Starts a hotkey daemon that binds hotkeys such as CTRL+A to an action. The
 bindings are defined in a TOML config file (hot-reload supported).
-
-COMMANDS:
-
-  install    installs the application as a Windows service
-  remove     removes the Windows service
 
 OPTIONS:
 
   -c, --config path
         specify config file path (default '`+DEFAULT_CONFIG_PATH+`')
-  -l, --log dir
-        specify log output directory (default stdout)
+  -l, --log path
+        specify log output file path (default stdout)
   -?, --help
         display this help message
   -v, --version
@@ -115,15 +108,9 @@ OPTIONS:
 		return
 	}
 
-	// Re-parse flags after the 'install' subcommand
-	if flag.Arg(0) == "install" {
-		subFlags := flag.NewFlagSet("install", flag.ExitOnError)
-		subFlags.StringVar(&cfg.configPath, "config", DEFAULT_CONFIG_PATH, "")
-		subFlags.StringVar(&cfg.logPath, "log", "", "")
-		if err := subFlags.Parse(os.Args[2:]); err != nil {
-			flag.Usage()
-			os.Exit(1)
-		}
+	if flag.NArg() > 0 {
+		flag.Usage()
+		os.Exit(1)
 	}
 
 	// Determine config path
@@ -134,41 +121,8 @@ OPTIONS:
 		configPath = expandVariable(cfg.configPath)
 	}
 
-	// Subcommand logic: install/remove
-	if len(os.Args) > 1 {
-		switch os.Args[1] {
-		case "install":
-			if err := installService(configPath, cfg.logPath); err != nil {
-				log.Fatalf("install failed: %v", err)
-			}
-			log.Println("Service installed.")
-			return
-
-		case "remove":
-			if err := removeService(); err != nil {
-				log.Fatalf("remove failed: %v", err)
-			}
-			log.Println("Service removed.")
-			return
-		case "-c", "--config", "-l", "--log":
-			// Handled above
-		default:
-			log.Fatalf("unknown command: %s", os.Args[1])
-		}
-	}
-
-	// Determine runtime mode before logger setup so startup logs can include role.
-	isService, err := svc.IsWindowsService()
-	if err != nil {
-		log.Fatalf("IsWindowsService: %v", err)
-	}
-	mode := "console"
-	if isService {
-		mode = "service"
-	}
-
 	// Setup logging
-	logFile, err := setupLogging(cfg, mode)
+	logFile, err := setupLogging(cfg)
 	if err != nil {
 		log.Fatalf("Failed to setup logging: %v", err)
 	}
@@ -178,21 +132,13 @@ OPTIONS:
 			logFile.Close() //nolint:errcheck
 		}
 	}()
-
-	if isService {
-		logger.Printf("Running as service")
-		runService(cfg.logPath)
-	} else {
-		// Fallback for console mode (dev/testing)
-		logger.Printf("Running in console mode")
-		runServer()
-	}
-
+	runServer()
 }
 
 // runServer is your actual server logic.
 func runServer() {
 	logger.Printf("Server starting ... ")
+	logger.Printf("%s %s, built on %s (commit: %s)", name, version, date, commit)
 
 	runtime.LockOSThread()
 
