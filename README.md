@@ -2,7 +2,7 @@
 [![Test Status](https://github.com/tischda/hotkeys/actions/workflows/test.yml/badge.svg)](https://github.com/tischda/hotkeys/actions/workflows/test.yml)
 [![Coverage Status](https://coveralls.io/repos/tischda/hotkeys/badge.svg)](https://coveralls.io/r/tischda/hotkeys)
 [![Linter Status](https://github.com/tischda/hotkeys/actions/workflows/linter.yml/badge.svg)](https://github.com/tischda/hotkeys/actions/workflows/linter.yml)
-[![License](https://img.shields.io/github/license/tischda/hotkeys)](/LICENSE)
+[![License](https://img.shields.io/github/license/tischda/hotkeys.svg)](/LICENSE)
 [![Release](https://img.shields.io/github/release/tischda/hotkeys.svg)](https://github.com/tischda/hotkeys/releases/latest)
 
 # hotkeys
