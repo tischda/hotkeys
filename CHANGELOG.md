@@ -7,6 +7,8 @@
     - security concerns
     - complexity
 
+* Install as scheduled task (at user logon)
+
 ## [v1.1.0] - 2 February 2026
 
 Install and run as service

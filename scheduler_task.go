@@ -17,8 +17,6 @@ import (
 	"unicode/utf16"
 )
 
-const defaultTaskName = "Hotkeys"
-
 //go:embed scheduler_task.xml
 var scheduledTaskXMLTemplate string
 
@@ -26,6 +24,10 @@ var taskXMLTemplate = template.Must(template.New("scheduler_task.xml.tmpl").
 	Funcs(template.FuncMap{"xmlEscape": escapeXML}).
 	Parse(scheduledTaskXMLTemplate))
 
+// installStartupTask creates or updates the configured Task Scheduler entry for hotkeys.
+//
+// The task launches the current executable with optional config and log arguments.
+// When force is true, an existing task with the same name is replaced.
 func installStartupTask(taskName, configPath, logPath string, force bool) error {
 	exePath, err := os.Executable()
 	if err != nil {
@@ -90,6 +92,7 @@ func installStartupTask(taskName, configPath, logPath string, force bool) error 
 	return nil
 }
 
+// scheduledTaskXML renders the embedded XML template used to register the task.
 func scheduledTaskXML(username, command, arguments string) (string, error) {
 	startBoundary := time.Now().UTC().Format(time.RFC3339)
 
@@ -113,6 +116,7 @@ func scheduledTaskXML(username, command, arguments string) (string, error) {
 	return builder.String(), nil
 }
 
+// escapeXML escapes plain text for safe inclusion in XML element content.
 func escapeXML(value string) string {
 	var builder strings.Builder
 	if err := xml.EscapeText(&builder, []byte(value)); err != nil {
@@ -121,6 +125,7 @@ func escapeXML(value string) string {
 	return builder.String()
 }
 
+// removeStartupTask removes the configured Task Scheduler entry if it exists.
 func removeStartupTask(taskName string) error {
 	if err := runSchTasks("/Delete", "/TN", taskName, "/F"); err != nil {
 		return fmt.Errorf("delete scheduled task: %w", err)
@@ -128,12 +133,14 @@ func removeStartupTask(taskName string) error {
 	return nil
 }
 
+// scheduledTaskStatus represents whether the configured task exists and its runtime state.
 type scheduledTaskStatus struct {
 	Scheduled bool
 	Running   bool
 	Status    string
 }
 
+// getStartupTaskStatus queries Task Scheduler and returns the current task state.
 func getStartupTaskStatus(taskName string) (scheduledTaskStatus, error) {
 	output, err := runSchTasksOutput("/Query", "/TN", taskName, "/FO", "LIST", "/V")
 	if err != nil {
@@ -153,6 +160,7 @@ func getStartupTaskStatus(taskName string) (scheduledTaskStatus, error) {
 	}, nil
 }
 
+// currentUsername returns the current Windows username for task principal creation.
 func currentUsername() (string, error) {
 	currentUser, err := user.Current()
 	if err == nil && currentUser != nil && currentUser.Username != "" {
@@ -166,11 +174,13 @@ func currentUsername() (string, error) {
 	return username, nil
 }
 
+// runSchTasks executes schtasks.exe with the provided arguments and discards output.
 func runSchTasks(args ...string) error {
 	_, err := runSchTasksOutput(args...)
 	return err
 }
 
+// runSchTasksOutput executes schtasks.exe and returns trimmed combined output.
 func runSchTasksOutput(args ...string) (string, error) {
 	cmd := exec.Command("schtasks.exe", args...)
 	output, err := cmd.CombinedOutput()
@@ -184,6 +194,7 @@ func runSchTasksOutput(args ...string) (string, error) {
 	return trimmed, nil
 }
 
+// isTaskNotFoundError reports whether an schtasks error indicates a missing task.
 func isTaskNotFoundError(err error) bool {
 	if err == nil {
 		return false
@@ -200,6 +211,7 @@ func isTaskNotFoundError(err error) bool {
 	return false
 }
 
+// parseTaskStatus extracts the "Status" field from schtasks list output.
 func parseTaskStatus(output string) string {
 	for _, line := range strings.Split(output, "\n") {
 		trimmed := strings.TrimSpace(line)
@@ -220,6 +232,10 @@ func parseTaskStatus(output string) string {
 	return "unknown"
 }
 
+// writeUTF16LEWithBOM writes text to a file as UTF-16LE prefixed with BOM.
+//
+// Task Scheduler XML import is more reliable when the file encoding matches
+// the XML declaration and includes a BOM.
 func writeUTF16LEWithBOM(file *os.File, content string) error {
 	if _, err := file.Write([]byte{0xFF, 0xFE}); err != nil {
 		return err

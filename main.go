@@ -19,6 +19,9 @@ const DEFAULT_CONFIG_PATH = `%USERPROFILE%\.config\` + DEFAULT_CONFIG_FILE
 // takes precedence over DEFAULT_CONFIG_PATH above
 const HOTKEYS_CONFIG_HOME_VAR = "HOTKEYS_CONFIG_HOME"
 
+// Task Scheduler name for the hotkeys startup task
+const TASK_NAME = "Hotkeys"
+
 // https://goreleaser.com/cookbooks/using-main.version/
 var (
 	name    string
@@ -105,6 +108,15 @@ OPTIONS:
         print version and exit`)
 	}
 
+	// Determine config path
+	configPath = os.Getenv(HOTKEYS_CONFIG_HOME_VAR)
+	if configPath != "" {
+		configPath = filepath.Join(configPath, DEFAULT_CONFIG_FILE)
+	} else {
+		configPath = expandVariable(cfg.configPath)
+	}
+
+	// Handle Task Scheduler subcommands if present
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "install":
@@ -117,47 +129,30 @@ OPTIONS:
 				os.Exit(1)
 			}
 
-			installConfigPath := os.Getenv(HOTKEYS_CONFIG_HOME_VAR)
-			if installConfigPath != "" {
-				installConfigPath = filepath.Join(installConfigPath, DEFAULT_CONFIG_FILE)
-			} else {
-				installConfigPath = expandVariable(cfg.configPath)
-			}
-
-			if err := installStartupTask(defaultTaskName, installConfigPath, cfg.logPath, force); err != nil {
+			if err := installStartupTask(TASK_NAME, configPath, cfg.logPath, force); err != nil {
 				log.Fatalf("install failed: %v", err)
 			}
-			log.Printf("Task '%s' installed.", defaultTaskName)
+			log.Printf("Task '%s' installed.", TASK_NAME)
 			return
 
 		case "remove":
-			subFlags := flag.NewFlagSet("remove", flag.ExitOnError)
-			if err := subFlags.Parse(os.Args[2:]); err != nil {
-				os.Exit(1)
-			}
-
-			if err := removeStartupTask(defaultTaskName); err != nil {
+			if err := removeStartupTask(TASK_NAME); err != nil {
 				log.Fatalf("remove failed: %v", err)
 			}
-			log.Printf("Task '%s' removed.", defaultTaskName)
+			log.Printf("Task '%s' removed.", TASK_NAME)
 			return
 
 		case "status":
-			subFlags := flag.NewFlagSet("status", flag.ExitOnError)
-			if err := subFlags.Parse(os.Args[2:]); err != nil {
-				os.Exit(1)
-			}
-
-			status, err := getStartupTaskStatus(defaultTaskName)
+			status, err := getStartupTaskStatus(TASK_NAME)
 			if err != nil {
 				log.Fatalf("status failed: %v", err)
 			}
 
 			if !status.Scheduled {
-				log.Printf("Task '%s' scheduled=no", defaultTaskName)
+				log.Printf("Task '%s' scheduled=no", TASK_NAME)
 				return
 			}
-			log.Printf("Task '%s' scheduled=yes status=%s", defaultTaskName, status.Status)
+			log.Printf("Task '%s' scheduled=yes status=%s", TASK_NAME, status.Status)
 			return
 		}
 	}
@@ -188,14 +183,6 @@ OPTIONS:
 		log.Fatalf("failed to acquire single-instance lock: %v", err)
 	}
 	defer releaseInstanceLock()
-
-	// Determine config path
-	configPath = os.Getenv(HOTKEYS_CONFIG_HOME_VAR)
-	if configPath != "" {
-		configPath = filepath.Join(configPath, DEFAULT_CONFIG_FILE)
-	} else {
-		configPath = expandVariable(cfg.configPath)
-	}
 
 	// Setup logging
 	logFile, err := setupLogging(cfg)

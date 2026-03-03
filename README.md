@@ -26,7 +26,7 @@ Run with file logging:
 hotkeys --log=%TEMP%\hotkeys.log
 ~~~
 
-Install logon task (`At logon` + `Run only when user is logged on`):
+Install logon task:
 ~~~
 hotkeys install --config=%USERPROFILE%\.config\hotkeys.toml --log=%TEMP%\hotkeys.log --force
 ~~~
