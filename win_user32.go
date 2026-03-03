@@ -3,8 +3,12 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"syscall"
 	"unsafe"
+
+	"golang.org/x/sys/windows"
 )
 
 var (
@@ -198,4 +202,36 @@ func minimizeConsoleWindow() {
 		return
 	}
 	showWindow.Call(hwnd, uintptr(swMinimize)) //nolint:errcheck
+}
+
+// Theres should only be one instance of the hotkeys server running at a time.
+// We use a named mutex to enforce this.
+const singleInstanceMutexName = `Local\Hotkeys.SingleInstance`
+
+var errAlreadyRunning = errors.New("another hotkeys instance is already running")
+
+func acquireSingleInstanceLock() (func(), error) {
+	mutexName, err := syscall.UTF16PtrFromString(singleInstanceMutexName)
+	if err != nil {
+		return nil, fmt.Errorf("mutex name utf16: %w", err)
+	}
+
+	handle, createErr := windows.CreateMutex(nil, false, mutexName)
+	if handle == 0 {
+		return nil, fmt.Errorf("CreateMutex: %w", createErr)
+	}
+
+	if createErr != nil {
+		if errors.Is(createErr, windows.ERROR_ALREADY_EXISTS) {
+			_ = windows.CloseHandle(handle) //nolint:errcheck
+			return nil, errAlreadyRunning
+		}
+		_ = windows.CloseHandle(handle) //nolint:errcheck
+		return nil, fmt.Errorf("CreateMutex: %w", createErr)
+	}
+
+	release := func() {
+		_ = windows.CloseHandle(handle) //nolint:errcheck
+	}
+	return release, nil
 }

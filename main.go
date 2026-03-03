@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 )
 
 // default config file path containing the hotkey bindings
@@ -162,6 +164,16 @@ OPTIONS:
 		os.Exit(1)
 	}
 
+	releaseInstanceLock, err := acquireSingleInstanceLock()
+	if err != nil {
+		if errors.Is(err, errAlreadyRunning) {
+			log.Println("hotkeys is already running")
+			return
+		}
+		log.Fatalf("failed to acquire single-instance lock: %v", err)
+	}
+	defer releaseInstanceLock()
+
 	// Determine config path
 	configPath = os.Getenv(HOTKEYS_CONFIG_HOME_VAR)
 	if configPath != "" {
@@ -204,12 +216,13 @@ func runServer() {
 		logger.Fatalf("Failed to load config %s: %v", configPath, err)
 	}
 
-	// Handle graceful shutdown on Ctrl+C
+	// Handle graceful shutdown on console/task stop signals.
 	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt)
+	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(interrupt)
 	go func() {
-		<-interrupt
-		logger.Println("Exiting...")
+		sig := <-interrupt
+		logger.Printf("Exiting on signal: %v", sig)
 		postMessageW.Call(hwnd, WM_APP_QUIT, 0, 0) //nolint:errcheck
 	}()
 
