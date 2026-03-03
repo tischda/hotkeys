@@ -80,10 +80,15 @@ func main() {
 	log.SetFlags(0)
 	cfg := initFlags()
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "Usage: "+name+` [OPTIONS]
+		fmt.Fprintln(os.Stderr, "Usage: "+name+` [COMMAND] [OPTIONS]
 
 Starts a hotkey daemon that binds hotkeys such as CTRL+A to an action. The
 bindings are defined in a TOML config file (hot-reload supported).
+
+COMMANDS:
+
+  install [--force]  creates/updates a Task Scheduler logon entry
+  remove             removes the Task Scheduler logon entry
 
 OPTIONS:
 
@@ -96,6 +101,50 @@ OPTIONS:
   -v, --version
         print version and exit`)
 	}
+
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "install":
+			subFlags := flag.NewFlagSet("install", flag.ExitOnError)
+			subFlags.StringVar(&cfg.configPath, "config", DEFAULT_CONFIG_PATH, "")
+			subFlags.StringVar(&cfg.logPath, "log", "", "")
+			taskName := defaultTaskName
+			subFlags.StringVar(&taskName, "task-name", defaultTaskName, "")
+			force := false
+			subFlags.BoolVar(&force, "force", false, "")
+			if err := subFlags.Parse(os.Args[2:]); err != nil {
+				os.Exit(1)
+			}
+
+			installConfigPath := os.Getenv(HOTKEYS_CONFIG_HOME_VAR)
+			if installConfigPath != "" {
+				installConfigPath = filepath.Join(installConfigPath, DEFAULT_CONFIG_FILE)
+			} else {
+				installConfigPath = expandVariable(cfg.configPath)
+			}
+
+			if err := installStartupTask(taskName, installConfigPath, cfg.logPath, force); err != nil {
+				log.Fatalf("install failed: %v", err)
+			}
+			log.Printf("Task '%s' installed.", taskName)
+			return
+
+		case "remove":
+			subFlags := flag.NewFlagSet("remove", flag.ExitOnError)
+			taskName := defaultTaskName
+			subFlags.StringVar(&taskName, "task-name", defaultTaskName, "")
+			if err := subFlags.Parse(os.Args[2:]); err != nil {
+				os.Exit(1)
+			}
+
+			if err := removeStartupTask(taskName); err != nil {
+				log.Fatalf("remove failed: %v", err)
+			}
+			log.Printf("Task '%s' removed.", taskName)
+			return
+		}
+	}
+
 	flag.Parse()
 
 	if flag.Arg(0) == "version" || cfg.version {
@@ -132,6 +181,7 @@ OPTIONS:
 			logFile.Close() //nolint:errcheck
 		}
 	}()
+	minimizeConsoleWindow()
 	runServer()
 }
 

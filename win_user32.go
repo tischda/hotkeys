@@ -24,9 +24,13 @@ var (
 	registerClassExW = user32.NewProc("RegisterClassExW")
 	createWindowExW  = user32.NewProc("CreateWindowExW")
 	destroyWindow    = user32.NewProc("DestroyWindow")
+	showWindow       = user32.NewProc("ShowWindow")
 
 	getModuleHandleW = kernel32.NewProc("GetModuleHandleW")
+	getConsoleWindow = kernel32.NewProc("GetConsoleWindow")
 )
+
+const swMinimize = 6
 
 type MSG struct {
 	HWnd    uintptr
@@ -185,4 +189,13 @@ func messageLoop() {
 		translateMessage.Call(uintptr(unsafe.Pointer(&msg))) //nolint:errcheck
 		dispatchMessageW.Call(uintptr(unsafe.Pointer(&msg))) //nolint:errcheck
 	}
+}
+
+// Task Scheduler should minimize console.
+func minimizeConsoleWindow() {
+	hwnd, _, _ := getConsoleWindow.Call()
+	if hwnd == 0 {
+		return
+	}
+	showWindow.Call(hwnd, uintptr(swMinimize)) //nolint:errcheck
 }

@@ -26,10 +26,25 @@ Run with file logging:
 hotkeys --log=%TEMP%\hotkeys.log
 ~~~
 
+Install logon task (`At logon` + `Run only when user is logged on`):
+~~~
+hotkeys install --config=%USERPROFILE%\.config\hotkeys.toml --log=%TEMP%\hotkeys.log --force
+~~~
+
+Remove logon task:
+~~~
+hotkeys remove
+~~~
+
 ## Usage
 
 ~~~
-Usage: hotkeys [OPTIONS]
+Usage: hotkeys [COMMAND] [OPTIONS]
+
+COMMANDS:
+
+      install   creates/updates a Task Scheduler logon entry
+      remove    removes the Task Scheduler logon entry
 
 OPTIONS:
 
@@ -75,7 +90,7 @@ In `action`, use single quotes to avoid issues with backslashes in file paths.
 ## Known issues
 
 * When starting alacritty without `cmd /c`, all child terminals launched by hotkeys
-      are killed when the daemon is stopped. I could not reproduce this with notepad.exe.
+      are killed when the daemon is stopped (could not reproduce with notepad.exe).
 
 * Some strange behaviour for console applications, eg. `action = [ "wait.exe", "20" ]`,
   nothing seems to happen, but the process is actually running:
