@@ -20,7 +20,7 @@ const (
 // service struct implementing svc.Handler
 type myService struct {
 	config string
-	log    string
+	logDir string
 }
 
 // Execute is called by the Windows service manager.
@@ -30,32 +30,60 @@ func (m *myService) Execute(args []string, r <-chan svc.ChangeRequest, s chan<- 
 	s <- svc.Status{State: svc.StartPending}
 
 	// Log to file or stdout
-	logger.Printf("Execute with config=%s, log=%s", m.config, m.log)
-
-	pi, err := launchAgentInActiveSession(m.config, m.log)
-	if err != nil {
-		logger.Printf("Failed to launch agent in active session: %v", err)
-		s <- svc.Status{State: svc.Stopped}
-		return false, 1
-	}
-	defer func() {
-		// Best-effort cleanup.
-		_ = windows.CloseHandle(pi.Thread)
-		_ = windows.CloseHandle(pi.Process)
-	}()
+	logger.Printf("Execute with config=%s, logDir=%s", m.config, m.logDir)
 
 	s <- svc.Status{State: svc.Running, Accepts: cmdsAccepted}
 
+	var pi *windows.ProcessInformation
+	var lastLaunchErr string
+	launchTicker := time.NewTicker(2 * time.Second)
+	defer launchTicker.Stop()
+
+	launchAgent := func() {
+		if pi != nil {
+			return
+		}
+
+		newPI, err := launchAgentInActiveSession(m.config, m.logDir)
+		if err != nil {
+			errText := err.Error()
+			if errText != lastLaunchErr {
+				logger.Printf("Failed to launch agent in active session: %v", err)
+				lastLaunchErr = errText
+			}
+			return
+		}
+
+		pi = newPI
+		lastLaunchErr = ""
+		logger.Printf("Launched agent in active session (pid=%d)", pi.ProcessId)
+	}
+
+	launchAgent()
+
 loop:
-	for c := range r {
-		switch c.Cmd {
-		case svc.Interrogate:
-			s <- c.CurrentStatus
-		case svc.Stop, svc.Shutdown:
-			logger.Println("Service received stop signal")
-			_ = windows.TerminateProcess(pi.Process, 0)
-			break loop
-		default:
+	for {
+		select {
+		case c, ok := <-r:
+			if !ok {
+				break loop
+			}
+			switch c.Cmd {
+			case svc.Interrogate:
+				s <- c.CurrentStatus
+			case svc.Stop, svc.Shutdown:
+				logger.Println("Service received stop signal")
+				if pi != nil {
+					_ = windows.TerminateProcess(pi.Process, 0)
+					_ = windows.CloseHandle(pi.Thread)
+					_ = windows.CloseHandle(pi.Process)
+					pi = nil
+				}
+				break loop
+			default:
+			}
+		case <-launchTicker.C:
+			launchAgent()
 		}
 	}
 
@@ -68,8 +96,8 @@ loop:
 }
 
 // installService installs the current executable as a Windows service
-// and sets the config/log arguments into the service configuration.
-func installService(cfg, logf string) error {
+// and sets the config/log directory arguments into the service configuration.
+func installService(cfg, logDir string) error {
 	exePath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("cannot get executable path: %w", err)
@@ -98,14 +126,14 @@ func installService(cfg, logf string) error {
 	}
 
 	// args here become part of the service command line when started:
-	// hotkeys.exe --config cfg --log logf
+	// hotkeys.exe --config cfg --log logDir
 	var s *mgr.Service
-	if logf == "" {
+	if logDir == "" {
 		s, err = m.CreateService(SERVICE_NAME, exePath, config, "--config", cfg)
 	} else {
 		s, err = m.CreateService(SERVICE_NAME, exePath, config,
 			"--config", cfg,
-			"--log", logf,
+			"--log", logDir,
 		)
 	}
 	if err != nil {
@@ -141,7 +169,7 @@ func runService(logf string) {
 
 	ms := &myService{
 		config: configPath,
-		log:    logf,
+		logDir: logf,
 	}
 
 	err = svc.Run(SERVICE_NAME, ms)

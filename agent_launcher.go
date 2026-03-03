@@ -99,6 +99,10 @@ func executablePath() (string, error) {
 }
 
 func primaryTokenForSession(sessionID uint32) (windows.Token, error) {
+	if err := enableProcessPrivilege("SeTcbPrivilege"); err != nil {
+		return 0, fmt.Errorf("enable SeTcbPrivilege: %w", err)
+	}
+
 	var token windows.Token
 	if err := windows.WTSQueryUserToken(sessionID, &token); err != nil {
 		return 0, fmt.Errorf("WTSQueryUserToken(session=%d): %w", sessionID, err)
@@ -119,6 +123,54 @@ func primaryTokenForSession(sessionID uint32) (windows.Token, error) {
 	}
 
 	return primary, nil
+}
+
+func enableProcessPrivilege(privilegeName string) error {
+	var token windows.Token
+	if err := windows.OpenProcessToken(
+		windows.CurrentProcess(),
+		windows.TOKEN_ADJUST_PRIVILEGES|windows.TOKEN_QUERY,
+		&token,
+	); err != nil {
+		return fmt.Errorf("OpenProcessToken: %w", err)
+	}
+	defer token.Close() //nolint:errcheck
+
+	namePtr, err := syscall.UTF16PtrFromString(privilegeName)
+	if err != nil {
+		return fmt.Errorf("privilege name utf16: %w", err)
+	}
+
+	var luid windows.LUID
+	if err := windows.LookupPrivilegeValue(nil, namePtr, &luid); err != nil {
+		return fmt.Errorf("LookupPrivilegeValue(%s): %w", privilegeName, err)
+	}
+
+	privileges := windows.Tokenprivileges{
+		PrivilegeCount: 1,
+		Privileges: [1]windows.LUIDAndAttributes{{
+			Luid:       luid,
+			Attributes: windows.SE_PRIVILEGE_ENABLED,
+		}},
+	}
+
+	if err := windows.AdjustTokenPrivileges(token, false, &privileges, 0, nil, nil); err != nil {
+		return fmt.Errorf("AdjustTokenPrivileges(%s): %w", privilegeName, err)
+	}
+
+	if lastErr := windows.GetLastError(); lastErr != nil {
+		if errno, ok := lastErr.(syscall.Errno); ok {
+			if errno == 0 {
+				return nil
+			}
+			if errno == windows.ERROR_NOT_ALL_ASSIGNED {
+				return fmt.Errorf("AdjustTokenPrivileges(%s): %w", privilegeName, windows.ERROR_NOT_ALL_ASSIGNED)
+			}
+		}
+		return fmt.Errorf("AdjustTokenPrivileges(%s) last error: %w", privilegeName, lastErr)
+	}
+
+	return nil
 }
 
 func userEnvBlock(token windows.Token) ([]uint16, error) {

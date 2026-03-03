@@ -40,7 +40,7 @@ func initFlags() *Config {
 	flag.StringVar(&cfg.configPath, "c", DEFAULT_CONFIG_PATH, "")
 	flag.StringVar(&cfg.configPath, "config", DEFAULT_CONFIG_PATH, "specify config file path")
 	flag.StringVar(&cfg.logPath, "l", "", "")
-	flag.StringVar(&cfg.logPath, "log", "", "specify log output path")
+	flag.StringVar(&cfg.logPath, "log", "", "specify log output directory")
 	flag.BoolVar(&cfg.help, "?", false, "")
 	flag.BoolVar(&cfg.help, "help", false, "displays this help message")
 	flag.BoolVar(&cfg.version, "v", false, "")
@@ -96,8 +96,8 @@ OPTIONS:
 
   -c, --config path
         specify config file path (default '`+DEFAULT_CONFIG_PATH+`')
-  -l, --log path
-        specify log output path (default stdout)
+  -l, --log dir
+        specify log output directory (default stdout)
   -?, --help
         display this help message
   -v, --version
@@ -150,15 +150,25 @@ OPTIONS:
 			}
 			log.Println("Service removed.")
 			return
-		case "--config", "--log":
+		case "-c", "--config", "-l", "--log":
 			// Handled above
 		default:
 			log.Fatalf("unknown command: %s", os.Args[1])
 		}
 	}
 
+	// Determine runtime mode before logger setup so startup logs can include role.
+	isService, err := svc.IsWindowsService()
+	if err != nil {
+		log.Fatalf("IsWindowsService: %v", err)
+	}
+	mode := "console"
+	if isService {
+		mode = "service"
+	}
+
 	// Setup logging
-	logFile, err := setupLogging(cfg)
+	logFile, err := setupLogging(cfg, mode)
 	if err != nil {
 		log.Fatalf("Failed to setup logging: %v", err)
 	}
@@ -168,12 +178,6 @@ OPTIONS:
 			logFile.Close() //nolint:errcheck
 		}
 	}()
-
-	// If we're here, no install/remove: run as service or console.
-	isService, err := svc.IsWindowsService()
-	if err != nil {
-		logger.Fatalf("IsWindowsService: %v", err)
-	}
 
 	if isService {
 		logger.Printf("Running as service")

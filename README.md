@@ -24,10 +24,15 @@ go install github.com/tischda/hotkeys@latest
 
 Install and run as service:
 ~~~
-hotkeys install --log=%TEMP%\hotkeys-service.log
+hotkeys install --log=%TEMP%
 sc start hotkeys
 sc query hotkeys
 ~~~
+
+When `--log` is set, it is treated as a directory and logs are split per process:
+
+- `hotkeys-service.log`
+- `hotkeys-agent.log`
 
 ## Usage
 
@@ -43,8 +48,8 @@ OPTIONS:
 
   -c, --config path
         specify config file path (default '%USERPROFILE%\.config\hotkeys.toml')
-  -l, --log path
-        specify log output path (default stdout)
+  -l, --log dir
+        specify log output directory (default stdout)
   -?, --help
         display this help message
   -v, --version
