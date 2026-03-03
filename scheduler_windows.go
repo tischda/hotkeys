@@ -128,6 +128,31 @@ func removeStartupTask(taskName string) error {
 	return nil
 }
 
+type scheduledTaskStatus struct {
+	Scheduled bool
+	Running   bool
+	Status    string
+}
+
+func getStartupTaskStatus(taskName string) (scheduledTaskStatus, error) {
+	output, err := runSchTasksOutput("/Query", "/TN", taskName, "/FO", "LIST", "/V")
+	if err != nil {
+		if isTaskNotFoundError(err) {
+			return scheduledTaskStatus{Scheduled: false}, nil
+		}
+		return scheduledTaskStatus{}, fmt.Errorf("query scheduled task: %w", err)
+	}
+
+	statusValue := parseTaskStatus(output)
+	running := strings.EqualFold(statusValue, "running")
+
+	return scheduledTaskStatus{
+		Scheduled: true,
+		Running:   running,
+		Status:    statusValue,
+	}, nil
+}
+
 func currentUsername() (string, error) {
 	currentUser, err := user.Current()
 	if err == nil && currentUser != nil && currentUser.Username != "" {
@@ -142,16 +167,57 @@ func currentUsername() (string, error) {
 }
 
 func runSchTasks(args ...string) error {
+	_, err := runSchTasksOutput(args...)
+	return err
+}
+
+func runSchTasksOutput(args ...string) (string, error) {
 	cmd := exec.Command("schtasks.exe", args...)
 	output, err := cmd.CombinedOutput()
+	trimmed := strings.TrimSpace(string(output))
 	if err != nil {
-		trimmed := strings.TrimSpace(string(output))
 		if trimmed == "" {
-			return err
+			return "", err
 		}
-		return fmt.Errorf("%w: %s", err, trimmed)
+		return "", fmt.Errorf("%w: %s", err, trimmed)
 	}
-	return nil
+	return trimmed, nil
+}
+
+func isTaskNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	text := strings.ToLower(err.Error())
+	if strings.Contains(text, "cannot find the file specified") {
+		return true
+	}
+	if strings.Contains(text, "cannot find the task") {
+		return true
+	}
+
+	return false
+}
+
+func parseTaskStatus(output string) string {
+	for _, line := range strings.Split(output, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		parts := strings.SplitN(trimmed, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if strings.EqualFold(key, "status") {
+			return value
+		}
+	}
+
+	return "unknown"
 }
 
 func writeUTF16LEWithBOM(file *os.File, content string) error {

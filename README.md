@@ -36,6 +36,11 @@ Remove logon task:
 hotkeys remove
 ~~~
 
+Show task status:
+~~~
+hotkeys status
+~~~
+
 ## Usage
 
 ~~~
@@ -45,6 +50,7 @@ COMMANDS:
 
       install   creates/updates a Task Scheduler logon entry
       remove    removes the Task Scheduler logon entry
+      status    shows Task Scheduler state (scheduled/running)
 
 OPTIONS:
 

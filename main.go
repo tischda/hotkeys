@@ -91,6 +91,7 @@ COMMANDS:
 
   install [--force]  creates/updates a Task Scheduler logon entry
   remove             removes the Task Scheduler logon entry
+  status             shows Task Scheduler state (scheduled/running)
 
 OPTIONS:
 
@@ -110,8 +111,6 @@ OPTIONS:
 			subFlags := flag.NewFlagSet("install", flag.ExitOnError)
 			subFlags.StringVar(&cfg.configPath, "config", DEFAULT_CONFIG_PATH, "")
 			subFlags.StringVar(&cfg.logPath, "log", "", "")
-			taskName := defaultTaskName
-			subFlags.StringVar(&taskName, "task-name", defaultTaskName, "")
 			force := false
 			subFlags.BoolVar(&force, "force", false, "")
 			if err := subFlags.Parse(os.Args[2:]); err != nil {
@@ -125,24 +124,40 @@ OPTIONS:
 				installConfigPath = expandVariable(cfg.configPath)
 			}
 
-			if err := installStartupTask(taskName, installConfigPath, cfg.logPath, force); err != nil {
+			if err := installStartupTask(defaultTaskName, installConfigPath, cfg.logPath, force); err != nil {
 				log.Fatalf("install failed: %v", err)
 			}
-			log.Printf("Task '%s' installed.", taskName)
+			log.Printf("Task '%s' installed.", defaultTaskName)
 			return
 
 		case "remove":
 			subFlags := flag.NewFlagSet("remove", flag.ExitOnError)
-			taskName := defaultTaskName
-			subFlags.StringVar(&taskName, "task-name", defaultTaskName, "")
 			if err := subFlags.Parse(os.Args[2:]); err != nil {
 				os.Exit(1)
 			}
 
-			if err := removeStartupTask(taskName); err != nil {
+			if err := removeStartupTask(defaultTaskName); err != nil {
 				log.Fatalf("remove failed: %v", err)
 			}
-			log.Printf("Task '%s' removed.", taskName)
+			log.Printf("Task '%s' removed.", defaultTaskName)
+			return
+
+		case "status":
+			subFlags := flag.NewFlagSet("status", flag.ExitOnError)
+			if err := subFlags.Parse(os.Args[2:]); err != nil {
+				os.Exit(1)
+			}
+
+			status, err := getStartupTaskStatus(defaultTaskName)
+			if err != nil {
+				log.Fatalf("status failed: %v", err)
+			}
+
+			if !status.Scheduled {
+				log.Printf("Task '%s' scheduled=no", defaultTaskName)
+				return
+			}
+			log.Printf("Task '%s' scheduled=yes status=%s", defaultTaskName, status.Status)
 			return
 		}
 	}
