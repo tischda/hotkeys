@@ -24,10 +24,17 @@ var taskXMLTemplate = template.Must(template.New("scheduler_task.xml.tmpl").
 	Funcs(template.FuncMap{"xmlEscape": escapeXML}).
 	Parse(scheduledTaskXMLTemplate))
 
-// installStartupTask creates or updates the configured Task Scheduler entry for hotkeys.
+// installStartupTask creates or updates the configured Task Scheduler entry.
 //
-// The task launches the current executable with optional config and log arguments.
-// When force is true, an existing task with the same name is replaced.
+// Parameters:
+//   - taskName: Scheduler task name.
+//   - configPath: Value passed as --config when non-empty.
+//   - logPath: Value passed as --log when non-empty.
+//   - force: Replaces an existing task with the same name when true.
+//
+// Returns:
+//   - error: Non-nil when XML rendering, temporary file handling, or
+//     schtasks execution fails.
 func installStartupTask(taskName, configPath, logPath string, force bool) error {
 	exePath, err := os.Executable()
 	if err != nil {
@@ -93,6 +100,15 @@ func installStartupTask(taskName, configPath, logPath string, force bool) error 
 }
 
 // scheduledTaskXML renders the embedded XML template used to register the task.
+//
+// Parameters:
+//   - username: Task author and principal user.
+//   - command: Executable path used by the Exec action.
+//   - arguments: Optional command-line argument string for the Exec action.
+//
+// Returns:
+//   - string: Rendered task XML document.
+//   - error: Non-nil when template execution fails.
 func scheduledTaskXML(username, command, arguments string) (string, error) {
 	startBoundary := time.Now().UTC().Format(time.RFC3339)
 
@@ -116,7 +132,13 @@ func scheduledTaskXML(username, command, arguments string) (string, error) {
 	return builder.String(), nil
 }
 
-// escapeXML escapes plain text for safe inclusion in XML element content.
+// escapeXML escapes value for safe inclusion in XML element content.
+//
+// Parameters:
+//   - value: Plain text that may contain XML-sensitive characters.
+//
+// Returns:
+//   - string: Escaped XML text. If escaping fails, value is returned unchanged.
 func escapeXML(value string) string {
 	var builder strings.Builder
 	if err := xml.EscapeText(&builder, []byte(value)); err != nil {
@@ -125,7 +147,13 @@ func escapeXML(value string) string {
 	return builder.String()
 }
 
-// removeStartupTask removes the configured Task Scheduler entry if it exists.
+// removeStartupTask removes the configured Task Scheduler entry.
+//
+// Parameters:
+//   - taskName: Scheduler task name to delete.
+//
+// Returns:
+//   - error: Non-nil when schtasks cannot delete the task.
 func removeStartupTask(taskName string) error {
 	if err := runSchTasks("/Delete", "/TN", taskName, "/F"); err != nil {
 		return fmt.Errorf("delete scheduled task: %w", err)
@@ -136,11 +164,19 @@ func removeStartupTask(taskName string) error {
 // scheduledTaskStatus represents whether the configured task exists and its runtime state.
 type scheduledTaskStatus struct {
 	Scheduled bool
-	Running   bool
 	Status    string
 }
 
 // getStartupTaskStatus queries Task Scheduler and returns the current task state.
+//
+// Parameters:
+//   - taskName: Scheduler task name to query.
+//
+// Returns:
+//   - scheduledTaskStatus: Scheduled=false when the task is missing, otherwise
+//     populated with the current state.
+//   - error: Non-nil when query execution fails for reasons other than a
+//     missing task.
 func getStartupTaskStatus(taskName string) (scheduledTaskStatus, error) {
 	output, err := runSchTasksOutput("/Query", "/TN", taskName, "/FO", "LIST", "/V")
 	if err != nil {
@@ -151,16 +187,18 @@ func getStartupTaskStatus(taskName string) (scheduledTaskStatus, error) {
 	}
 
 	statusValue := parseTaskStatus(output)
-	running := strings.EqualFold(statusValue, "running")
 
 	return scheduledTaskStatus{
 		Scheduled: true,
-		Running:   running,
 		Status:    statusValue,
 	}, nil
 }
 
 // currentUsername returns the current Windows username for task principal creation.
+//
+// Returns:
+//   - string: Username from os/user when available, otherwise USERNAME.
+//   - error: Non-nil when no username can be resolved.
 func currentUsername() (string, error) {
 	currentUser, err := user.Current()
 	if err == nil && currentUser != nil && currentUser.Username != "" {
@@ -174,13 +212,27 @@ func currentUsername() (string, error) {
 	return username, nil
 }
 
-// runSchTasks executes schtasks.exe with the provided arguments and discards output.
+// runSchTasks executes schtasks.exe with the provided arguments.
+//
+// Parameters:
+//   - args: Arguments passed directly to schtasks.exe.
+//
+// Returns:
+//   - error: Non-nil when command execution fails.
 func runSchTasks(args ...string) error {
 	_, err := runSchTasksOutput(args...)
 	return err
 }
 
 // runSchTasksOutput executes schtasks.exe and returns trimmed combined output.
+//
+// Parameters:
+//   - args: Arguments passed directly to schtasks.exe.
+//
+// Returns:
+//   - string: Trimmed combined output on success.
+//   - error: Non-nil on execution failure; includes command output when
+//     available.
 func runSchTasksOutput(args ...string) (string, error) {
 	cmd := exec.Command("schtasks.exe", args...)
 	output, err := cmd.CombinedOutput()
@@ -194,12 +246,17 @@ func runSchTasksOutput(args ...string) (string, error) {
 	return trimmed, nil
 }
 
-// isTaskNotFoundError reports whether an schtasks error indicates a missing task.
+// isTaskNotFoundError reports whether err indicates a missing Scheduler task.
+//
+// Parameters:
+//   - err: Error returned by schtasks execution.
+//
+// Returns:
+//   - bool: True when err text matches known missing-task messages.
 func isTaskNotFoundError(err error) bool {
 	if err == nil {
 		return false
 	}
-
 	text := strings.ToLower(err.Error())
 	if strings.Contains(text, "cannot find the file specified") {
 		return true
@@ -207,11 +264,16 @@ func isTaskNotFoundError(err error) bool {
 	if strings.Contains(text, "cannot find the task") {
 		return true
 	}
-
 	return false
 }
 
 // parseTaskStatus extracts the "Status" field from schtasks list output.
+//
+// Parameters:
+//   - output: schtasks /Query output in LIST format.
+//
+// Returns:
+//   - string: Parsed status value, or "unknown" when no status field exists.
 func parseTaskStatus(output string) string {
 	for _, line := range strings.Split(output, "\n") {
 		trimmed := strings.TrimSpace(line)
@@ -228,25 +290,29 @@ func parseTaskStatus(output string) string {
 			return value
 		}
 	}
-
 	return "unknown"
 }
 
-// writeUTF16LEWithBOM writes text to a file as UTF-16LE prefixed with BOM.
+// writeUTF16LEWithBOM writes content to file as UTF-16LE prefixed with BOM.
 //
 // Task Scheduler XML import is more reliable when the file encoding matches
 // the XML declaration and includes a BOM.
+//
+// Parameters:
+//   - file: Open destination file.
+//   - content: UTF-8 source text to encode as UTF-16LE.
+//
+// Returns:
+//   - error: Non-nil when writing the BOM or encoded content fails.
 func writeUTF16LEWithBOM(file *os.File, content string) error {
 	if _, err := file.Write([]byte{0xFF, 0xFE}); err != nil {
 		return err
 	}
-
 	encoded := utf16.Encode([]rune(content))
 	for _, unit := range encoded {
 		if err := binary.Write(file, binary.LittleEndian, unit); err != nil {
 			return err
 		}
 	}
-
 	return nil
 }

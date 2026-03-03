@@ -21,26 +21,6 @@ USER and SYSTEM environment variables from the Windows registry.
 go install github.com/tischda/hotkeys@latest
 ~~~
 
-Run with file logging:
-~~~
-hotkeys --log=%TEMP%\hotkeys.log
-~~~
-
-Install logon task:
-~~~
-hotkeys install --config=%USERPROFILE%\.config\hotkeys.toml --log=%TEMP%\hotkeys.log --force
-~~~
-
-Remove logon task:
-~~~
-hotkeys remove
-~~~
-
-Show task status:
-~~~
-hotkeys status
-~~~
-
 ## Usage
 
 ~~~
@@ -48,9 +28,9 @@ Usage: hotkeys [COMMAND] [OPTIONS]
 
 COMMANDS:
 
-      install   creates/updates a Task Scheduler logon entry
-      remove    removes the Task Scheduler logon entry
-      status    shows Task Scheduler state (scheduled/running)
+  install [--force]  creates/updates a Task Scheduler logon entry
+  remove             removes the Task Scheduler logon entry
+  status             shows Task Scheduler state (scheduled/running)
 
 OPTIONS:
 
@@ -62,6 +42,54 @@ OPTIONS:
         display this help message
   -v, --version
         print version and exit
+~~~
+
+## Example
+
+Run with file logging:
+~~~
+hotkeys --log=%TEMP%\hotkeys-console.log
+~~~
+
+This will run interactively, but requires to leave this console window open.
+
+## Auto-start
+
+After a first version using Windows services, I came to the conclusion that a better option
+to start hotkeys with Windows is to setup a scheduled task named 'Hotkeys'.
+
+As an administrator, install a logon task (do not move hotkeys.exe after this):
+~~~
+sudo hotkeys install --config=%USERPROFILE%\.config\hotkeys.toml --log=%TEMP%\hotkeys-task.log --force
+~~~
+
+Remove logon task:
+~~~
+sudo hotkeys remove
+~~~
+
+Show task status:
+~~~
+hotkeys status
+~~~
+
+I am using gsudo here (`winget install -e --Id gerardog.gsudo`).
+
+## Start / Stop
+
+Start:
+~~~
+schtasks /Run /TN "Hotkeys"
+~~~
+
+Stop:
+~~~
+schtasks /End /TN "Hotkeys"
+~~~
+
+Verify:
+~~~
+schtasks /Query /TN "Hotkeys" /V /FO LIST
 ~~~
 
 ## Configuration
@@ -102,7 +130,7 @@ In `action`, use single quotes to avoid issues with backslashes in file paths.
   nothing seems to happen, but the process is actually running:
 
 ~~~
-tasklist /FI "IMAGENAME eq wait.exe"
+❯ tasklist /FI "IMAGENAME eq wait.exe"
 
 Image Name                     PID Session Name        Session#    Mem Usage
 ========================= ======== ================ =========== ============
@@ -114,3 +142,31 @@ Workaround:
 ~~~
 action = [ "cmd", "/c", "wait.exe", "20" ]
 ~~~
+
+* When hotkeys is already running in a console, it won't start again as a scheduled
+  task. This is by design, since you cannot register keybindings multiple times.
+  But keep this in mind when troubleshooting task startup. Here is an example:
+
+~~~
+❯ schtasks /Run /TN "Hotkeys"
+SUCCESS: Attempted to run the scheduled task "Hotkeys".
+
+❯ hotkeys status
+Task 'Hotkeys' scheduled=yes status=Ready
+~~~
+
+Here you can see the ATTEMPT was successful, but the RESULT is a failure! The
+status is 'Ready' and not 'Running'. Let's see if another hotkeys process is live:
+
+~~~
+❯ tasklist /FI "IMAGENAME eq hotkeys.exe"
+
+Image Name                     PID Session Name        Session#    Mem Usage
+========================= ======== ================ =========== ============
+hotkeys.exe                  11352 Console                    1      4,204 K
+
+❯ taskkill /f /im hotkeys.exe
+SUCCESS: The process "hotkeys.exe" with PID 11352 has been terminated.
+~~~
+
+Now that we have cleaned up, we can start the scheduled process.

@@ -1,13 +1,13 @@
 # Changelog
 
-## [v1.2.0] - March 2026
+## [v1.2.0] - 3 March 2026
 
-* Removed service execution for the following reasons:
+* Removed Windows service installation for the following reasons:
     - does not make sense for interactive session / logged‑in user
     - security concerns
     - complexity
 
-* Install as scheduled task (at user logon)
+* Install and run as scheduled task (at user logon)
 
 ## [v1.1.0] - 2 February 2026
 
