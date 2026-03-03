@@ -58,12 +58,12 @@ This will run interactively, but requires to leave this console window open.
 After a first version using Windows services, I came to the conclusion that a better option
 to start hotkeys with Windows is to setup a scheduled task named 'Hotkeys'.
 
-As an administrator, install a logon task (do not move hotkeys.exe after this):
+As an administrator, install a logon task (do not move `hotkeys.exe` after this):
 ~~~
 sudo hotkeys install --config=%USERPROFILE%\.config\hotkeys.toml --log=%TEMP%\hotkeys-task.log --force
 ~~~
 
-Remove logon task:
+Remove task:
 ~~~
 sudo hotkeys remove
 ~~~
@@ -76,6 +76,8 @@ hotkeys status
 I am using gsudo here (`winget install -e --Id gerardog.gsudo`).
 
 ## Start / Stop
+
+Once the scheduled task is configured, you can control is easily.
 
 Start:
 ~~~
@@ -94,7 +96,7 @@ schtasks /Query /TN "Hotkeys" /V /FO LIST
 
 ## Configuration
 
-By default, the configuration file is loaded from: `%USERPROFILE%\.config\hotkeys.toml`.
+By default, the hotkeys configuration file is loaded from: `%USERPROFILE%\.config\hotkeys.toml`.
 
 You can override the path for `hotkeys.toml` by setting the `HOTKEYS_CONFIG_HOME`
 environment variable, or by specifying the full path with `--config`.
@@ -124,7 +126,7 @@ In `action`, use single quotes to avoid issues with backslashes in file paths.
 ## Known issues
 
 * When starting alacritty without `cmd /c`, all child terminals launched by hotkeys
-      are killed when the daemon is stopped (could not reproduce with notepad.exe).
+      are killed when the daemon is stopped (could not reproduce it with `notepad.exe`).
 
 * Some strange behaviour for console applications, eg. `action = [ "wait.exe", "20" ]`,
   nothing seems to happen, but the process is actually running:
@@ -155,8 +157,8 @@ SUCCESS: Attempted to run the scheduled task "Hotkeys".
 Task 'Hotkeys' scheduled=yes status=Ready
 ~~~
 
-Here you can see the ATTEMPT was successful, but the RESULT is a failure! The
-status is 'Ready' and not 'Running'. Let's see if another hotkeys process is live:
+Here the ATTEMPT was successful, but the RESULT is a failure! The status is 'Ready'
+and not 'Running'. Let's see if another hotkeys process is live:
 
 ~~~
 ❯ tasklist /FI "IMAGENAME eq hotkeys.exe"
@@ -169,4 +171,4 @@ hotkeys.exe                  11352 Console                    1      4,204 K
 SUCCESS: The process "hotkeys.exe" with PID 11352 has been terminated.
 ~~~
 
-Now that we have cleaned up, we can start the scheduled process.
+Now we cleaned up the process and we can start the scheduled task.
