@@ -200,7 +200,6 @@ func messageLoop() {
 // Theres should only be one instance of the hotkeys server running at a time.
 // We use a named mutex to enforce this.
 const singleInstanceMutexName = `Local\Hotkeys.SingleInstance`
-const gracefulStopEventName = `Local\Hotkeys.GracefulStop`
 
 var errAlreadyRunning = errors.New("another hotkeys instance is already running")
 
@@ -230,65 +229,9 @@ func acquireSingleInstanceLock() (func(), error) {
 	return release, nil
 }
 
-// startGracefulStopListener waits for a named stop event and invokes onStop once.
-func startGracefulStopListener(onStop func()) (func(), error) {
-	if onStop == nil {
-		onStop = func() {}
-	}
-
-	eventHandle, err := createOrOpenGracefulStopEvent()
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		_, waitErr := windows.WaitForSingleObject(eventHandle, windows.INFINITE)
-		if waitErr != nil {
-			logger.Printf("Graceful stop wait failed: %v", waitErr)
-			return
-		}
-		onStop()
-	}()
-
-	cleanup := func() {
-		_ = windows.CloseHandle(eventHandle) //nolint:errcheck
-	}
-
-	return cleanup, nil
-}
-
 // signalGracefulStop notifies the running hotkeys process to shutdown gracefully.
 func signalGracefulStop() error {
-	if err := signalGracefulStopEvent(); err == nil {
-		return nil
-	}
-
-	// Backward compatibility: older running instances may not expose the stop
-	// event. In that case, post the quit message to the hotkeys message window.
-	if err := signalGracefulStopWindow(); err == nil {
-		return nil
-	}
-
-	return signalGracefulStopEvent()
-}
-
-func signalGracefulStopEvent() error {
-	eventName, err := syscall.UTF16PtrFromString(gracefulStopEventName)
-	if err != nil {
-		return fmt.Errorf("stop event name utf16: %w", err)
-	}
-
-	eventHandle, err := windows.OpenEvent(windows.EVENT_MODIFY_STATE, false, eventName)
-	if err != nil {
-		return fmt.Errorf("open stop event: %w", err)
-	}
-	defer windows.CloseHandle(eventHandle) //nolint:errcheck
-
-	if err := windows.SetEvent(eventHandle); err != nil {
-		return fmt.Errorf("set stop event: %w", err)
-	}
-
-	return nil
+	return signalGracefulStopWindow()
 }
 
 func signalGracefulStopWindow() error {
@@ -308,30 +251,6 @@ func signalGracefulStopWindow() error {
 	}
 
 	return nil
-}
-
-func createOrOpenGracefulStopEvent() (windows.Handle, error) {
-	eventName, err := syscall.UTF16PtrFromString(gracefulStopEventName)
-	if err != nil {
-		return 0, fmt.Errorf("stop event name utf16: %w", err)
-	}
-
-	eventHandle, createErr := windows.CreateEvent(nil, 1, 0, eventName)
-	if eventHandle == 0 {
-		return 0, fmt.Errorf("create stop event: %w", createErr)
-	}
-
-	if createErr != nil && !errors.Is(createErr, windows.ERROR_ALREADY_EXISTS) {
-		_ = windows.CloseHandle(eventHandle) //nolint:errcheck
-		return 0, fmt.Errorf("create stop event: %w", createErr)
-	}
-
-	if err := windows.ResetEvent(eventHandle); err != nil {
-		_ = windows.CloseHandle(eventHandle) //nolint:errcheck
-		return 0, fmt.Errorf("reset stop event: %w", err)
-	}
-
-	return eventHandle, nil
 }
 
 // findRunningProcessID finds a running process for imageName, excluding currentPID.

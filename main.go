@@ -293,16 +293,6 @@ func runServer() {
 		postMessageW.Call(hwnd, WM_APP_QUIT, 0, 0) //nolint:errcheck
 	}()
 
-	stopCleanup, err := startGracefulStopListener(func() {
-		logger.Printf("Exiting on graceful stop request")
-		postMessageW.Call(hwnd, WM_APP_QUIT, 0, 0) //nolint:errcheck
-	})
-	if err != nil {
-		logger.Printf("Graceful stop listener disabled: %v", err)
-	} else {
-		defer stopCleanup()
-	}
-
 	// Start config file watcher
 	watcher, err := startConfigWatcher(hwnd, configPath)
 	if err != nil {

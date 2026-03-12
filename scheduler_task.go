@@ -181,7 +181,7 @@ func startStartupTask(taskName string) error {
 //   - pid: Process ID of the hotkeys process.
 //
 // Returns:
-//   - error: Non-nil when stop event signaling fails.
+//   - error: Non-nil when graceful stop signaling fails.
 func stopProcessGracefully(pid int) error {
 	if pid <= 0 {
 		return fmt.Errorf("invalid process id: %d", pid)
