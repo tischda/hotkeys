@@ -161,6 +161,39 @@ func removeStartupTask(taskName string) error {
 	return nil
 }
 
+// startStartupTask starts the configured Task Scheduler entry immediately.
+//
+// Parameters:
+//   - taskName: Scheduler task name to run.
+//
+// Returns:
+//   - error: Non-nil when schtasks cannot run the task.
+func startStartupTask(taskName string) error {
+	if err := runSchTasks("/Run", "/TN", taskName); err != nil {
+		return fmt.Errorf("run scheduled task: %w", err)
+	}
+	return nil
+}
+
+// stopProcessGracefully requests graceful shutdown for the running hotkeys process.
+//
+// Parameters:
+//   - pid: Process ID of the hotkeys process.
+//
+// Returns:
+//   - error: Non-nil when stop event signaling fails.
+func stopProcessGracefully(pid int) error {
+	if pid <= 0 {
+		return fmt.Errorf("invalid process id: %d", pid)
+	}
+
+	if err := signalGracefulStop(); err != nil {
+		return fmt.Errorf("signal graceful stop for pid %d: %w", pid, err)
+	}
+
+	return nil
+}
+
 // scheduledTaskStatus represents whether the configured task exists and its runtime state.
 type scheduledTaskStatus struct {
 	Scheduled      bool

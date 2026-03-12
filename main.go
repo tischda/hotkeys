@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 )
 
@@ -29,6 +30,13 @@ var (
 	date    string
 	commit  string
 )
+
+func commandName() string {
+	if strings.TrimSpace(name) != "" {
+		return name
+	}
+	return filepath.Base(os.Args[0])
+}
 
 // flags
 type Config struct {
@@ -96,6 +104,8 @@ The bindings are defined in a TOML config file (hot-reload supported).
 COMMANDS:
 
   install [--force]  creates/updates a Task Scheduler entry
+  start              starts the scheduled Task Scheduler entry
+  stop               stops the running hotkeys process
   remove             removes the Task Scheduler entry
   status             shows Task Scheduler state (scheduled/running)
 
@@ -145,6 +155,40 @@ OPTIONS:
 				log.Fatalf("remove failed: %v", err)
 			}
 			log.Printf("Task '%s' removed.", TASK_NAME)
+			return
+
+		case "start":
+			status, err := getStartupTaskStatus(TASK_NAME)
+			if err != nil {
+				log.Fatalf("start failed: %v", err)
+			}
+			if !status.Scheduled {
+				log.Fatalf("start failed: task '%s' is not installed; run '%s install' first", TASK_NAME, commandName())
+			}
+
+			if err := startStartupTask(TASK_NAME); err != nil {
+				log.Fatalf("start failed: %v", err)
+			}
+			log.Printf("Task '%s' started.", TASK_NAME)
+			return
+
+		case "stop":
+			status, err := getStartupTaskStatus(TASK_NAME)
+			if err != nil {
+				log.Fatalf("stop failed: %v", err)
+			}
+			if !status.Scheduled {
+				log.Fatalf("stop failed: task '%s' is not installed; run '%s install' first", TASK_NAME, commandName())
+			}
+			if !status.ProcessRunning {
+				log.Printf("Task '%s' process already stopped.", TASK_NAME)
+				return
+			}
+
+			if err := stopProcessGracefully(status.ProcessID); err != nil {
+				log.Fatalf("stop failed: %v", err)
+			}
+			log.Printf("Task '%s' stop signal sent to pid=%d.", TASK_NAME, status.ProcessID)
 			return
 
 		case "status":
@@ -228,7 +272,7 @@ func runServer() {
 	runtime.LockOSThread()
 
 	var err error
-	hwnd, err := createHiddenWindow("HotkeyWindow")
+	hwnd, err := createHiddenWindow(hotkeyWindowClassName)
 	if err != nil {
 		logger.Fatalf("Failed to create hidden window: %v", err)
 	}
@@ -248,6 +292,16 @@ func runServer() {
 		logger.Printf("Exiting on signal: %v", sig)
 		postMessageW.Call(hwnd, WM_APP_QUIT, 0, 0) //nolint:errcheck
 	}()
+
+	stopCleanup, err := startGracefulStopListener(func() {
+		logger.Printf("Exiting on graceful stop request")
+		postMessageW.Call(hwnd, WM_APP_QUIT, 0, 0) //nolint:errcheck
+	})
+	if err != nil {
+		logger.Printf("Graceful stop listener disabled: %v", err)
+	} else {
+		defer stopCleanup()
+	}
 
 	// Start config file watcher
 	watcher, err := startConfigWatcher(hwnd, configPath)

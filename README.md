@@ -34,6 +34,8 @@ The bindings are defined in a TOML config file (hot-reload supported).
 COMMANDS:
 
   install [--force]  creates/updates a Task Scheduler entry
+  start              starts the scheduled Task Scheduler entry
+  stop               stops the running hotkeys process
   remove             removes the Task Scheduler entry
   status             shows Task Scheduler state (scheduled/running)
 
