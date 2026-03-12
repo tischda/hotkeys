@@ -5,10 +5,44 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 
 	"golang.org/x/sys/windows"
 )
+
+// startDetached starts a detached child process when background mode is requested.
+//
+// Returns true when a detached child has been started and the current process should exit.
+func startDetached(background bool) (bool, error) {
+	if !background {
+		return false, nil
+	}
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return false, fmt.Errorf("resolve executable path: %w", err)
+	}
+
+	childArgs := make([]string, 0, len(os.Args)-1)
+	for _, arg := range os.Args[1:] {
+		if arg == "-b" || arg == "--background" {
+			continue
+		}
+		childArgs = append(childArgs, arg)
+	}
+
+	cmd := exec.Command(exePath, childArgs...)
+	cmd.SysProcAttr = &windows.SysProcAttr{
+		CreationFlags: windows.DETACHED_PROCESS,
+	}
+
+	if err := cmd.Start(); err != nil {
+		return false, fmt.Errorf("start detached child: %w", err)
+	}
+
+	return true, nil
+}
 
 // executeCommand starts a new process specified by cmd in a detached state on Windows.
 // The new process will not be attached to the current console and will run independently.

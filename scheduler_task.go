@@ -50,7 +50,7 @@ func installStartupTask(taskName, configPath, logPath string, force bool) error 
 		return fmt.Errorf("paths must not contain double quotes")
 	}
 
-	runArguments := ""
+	runArguments := "--background"
 	if configPath != "" {
 		runArguments += fmt.Sprintf(" --config \"%s\"", configPath)
 	}
@@ -163,8 +163,10 @@ func removeStartupTask(taskName string) error {
 
 // scheduledTaskStatus represents whether the configured task exists and its runtime state.
 type scheduledTaskStatus struct {
-	Scheduled bool
-	Status    string
+	Scheduled      bool
+	Status         string
+	ProcessRunning bool
+	ProcessID      int
 }
 
 // getStartupTaskStatus queries Task Scheduler and returns the current task state.
@@ -187,10 +189,21 @@ func getStartupTaskStatus(taskName string) (scheduledTaskStatus, error) {
 	}
 
 	statusValue := parseTaskStatus(output)
+	imageName := filepath.Base(os.Args[0])
+	if exePath, err := os.Executable(); err == nil {
+		imageName = filepath.Base(exePath)
+	}
+
+	pid, running, err := findRunningProcessID(imageName, os.Getpid())
+	if err != nil {
+		return scheduledTaskStatus{}, fmt.Errorf("query running process: %w", err)
+	}
 
 	return scheduledTaskStatus{
-		Scheduled: true,
-		Status:    statusValue,
+		Scheduled:      true,
+		Status:         statusValue,
+		ProcessRunning: running,
+		ProcessID:      pid,
 	}, nil
 }
 

@@ -34,6 +34,7 @@ var (
 type Config struct {
 	configPath string
 	logPath    string
+	background bool
 	help       bool
 	version    bool
 }
@@ -44,6 +45,8 @@ func initFlags() *Config {
 	flag.StringVar(&cfg.configPath, "config", DEFAULT_CONFIG_PATH, "specify config file path")
 	flag.StringVar(&cfg.logPath, "l", "", "")
 	flag.StringVar(&cfg.logPath, "log", "", "specify log output file path")
+	flag.BoolVar(&cfg.background, "b", false, "")
+	flag.BoolVar(&cfg.background, "background", false, "start in background without a console window")
 	flag.BoolVar(&cfg.help, "?", false, "")
 	flag.BoolVar(&cfg.help, "help", false, "displays this help message")
 	flag.BoolVar(&cfg.version, "v", false, "")
@@ -87,13 +90,13 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, "Usage: "+name+` [COMMAND] [OPTIONS]
 
-Starts a hotkey daemon that binds hotkeys such as CTRL+A to an action. The
-bindings are defined in a TOML config file (hot-reload supported).
+Starts a hotkey daemon that binds hotkeys such as ALT+ENTER to an action.
+The bindings are defined in a TOML config file (hot-reload supported).
 
 COMMANDS:
 
-  install [--force]  creates/updates a Task Scheduler logon entry
-  remove             removes the Task Scheduler logon entry
+  install [--force]  creates/updates a Task Scheduler entry
+  remove             removes the Task Scheduler entry
   status             shows Task Scheduler state (scheduled/running)
 
 OPTIONS:
@@ -102,6 +105,8 @@ OPTIONS:
         specify config file path (default '`+DEFAULT_CONFIG_PATH+`')
   -l, --log path
         specify log output file path (default stdout)
+  -b, --background
+        start in background without a console window
   -?, --help
         display this help message
   -v, --version
@@ -152,7 +157,12 @@ OPTIONS:
 				log.Printf("Task '%s' scheduled=no", TASK_NAME)
 				return
 			}
-			log.Printf("Task '%s' scheduled=yes status=%s", TASK_NAME, status.Status)
+			if status.ProcessRunning {
+				log.Printf("Task '%s' scheduled=yes status=%s, process=Running (pid=%d)", TASK_NAME, status.Status, status.ProcessID)
+				return
+			}
+
+			log.Printf("Task '%s' scheduled=yes status=%s, process=Stopped", TASK_NAME, status.Status)
 			return
 		}
 	}
@@ -174,6 +184,18 @@ OPTIONS:
 		os.Exit(1)
 	}
 
+	// When running with --background, the process is re-executed in a detached state without
+	// a console window. In that case, the parent process should exit immediately and not run
+	// the server logic below. The detached child process will continue to run the server.
+	detached, err := startDetached(cfg.background)
+	if err != nil {
+		log.Fatalf("failed to start in background: %v", err)
+	}
+	if detached {
+		return
+	}
+
+	// Ensure only one instance is running
 	releaseInstanceLock, err := acquireSingleInstanceLock()
 	if err != nil {
 		if errors.Is(err, errAlreadyRunning) {
@@ -195,7 +217,6 @@ OPTIONS:
 			logFile.Close() //nolint:errcheck
 		}
 	}()
-	minimizeConsoleWindow()
 	runServer()
 }
 

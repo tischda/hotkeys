@@ -31,12 +31,16 @@ func TestInitFlags(t *testing.T) {
 	if cfg.version != false {
 		t.Errorf("Expected version default to be false, got %v", cfg.version)
 	}
+	if cfg.background != false {
+		t.Errorf("Expected background default to be false, got %v", cfg.background)
+	}
 
 	// Test that flags can be parsed
 	testArgs := []string{
 		"hotkeys.exe",
 		"-?",
 		"-v",
+		"--background",
 	}
 
 	// Reset flag set and reinitialize
@@ -52,5 +56,8 @@ func TestInitFlags(t *testing.T) {
 	// Verify flags were set correctly
 	if !cfg.version {
 		t.Error("Expected version flag to be true")
+	}
+	if !cfg.background {
+		t.Error("Expected background flag to be true")
 	}
 }

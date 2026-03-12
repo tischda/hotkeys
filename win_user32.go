@@ -5,6 +5,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -195,15 +197,6 @@ func messageLoop() {
 	}
 }
 
-// Task Scheduler should hide console.
-func minimizeConsoleWindow() {
-	hwnd, _, _ := getConsoleWindow.Call()
-	if hwnd == 0 {
-		return
-	}
-	showWindow.Call(hwnd, uintptr(swHide)) //nolint:errcheck
-}
-
 // Theres should only be one instance of the hotkeys server running at a time.
 // We use a named mutex to enforce this.
 const singleInstanceMutexName = `Local\Hotkeys.SingleInstance`
@@ -234,4 +227,61 @@ func acquireSingleInstanceLock() (func(), error) {
 		_ = windows.CloseHandle(handle) //nolint:errcheck
 	}
 	return release, nil
+}
+
+// findRunningProcessID finds a running process for imageName, excluding currentPID.
+//
+// Parameters:
+//   - imageName: Process image name to match (for example, hotkeys.exe).
+//   - currentPID: Process ID to ignore from the results.
+//
+// Returns:
+//   - int: PID of a matching process when found, otherwise 0.
+//   - bool: True when a matching process PID is found.
+//   - error: Non-nil when Win32 process enumeration fails.
+func findRunningProcessID(imageName string, currentPID int) (int, bool, error) {
+	if strings.TrimSpace(imageName) == "" {
+		return 0, false, nil
+	}
+	targetImageName := filepath.Base(strings.TrimSpace(imageName))
+
+	snapshot, err := windows.CreateToolhelp32Snapshot(windows.TH32CS_SNAPPROCESS, 0)
+	if err != nil {
+		return 0, false, fmt.Errorf("create process snapshot: %w", err)
+	}
+	defer windows.CloseHandle(snapshot) //nolint:errcheck
+
+	var processEntry windows.ProcessEntry32
+	processEntry.Size = uint32(unsafe.Sizeof(processEntry))
+	if err := windows.Process32First(snapshot, &processEntry); err != nil {
+		if errors.Is(err, windows.ERROR_NO_MORE_FILES) {
+			return 0, false, nil
+		}
+		return 0, false, fmt.Errorf("enumerate first process: %w", err)
+	}
+
+	for {
+		entryImageName := windows.UTF16ToString(processEntry.ExeFile[:])
+		if int(processEntry.ProcessID) != currentPID && isProcessImageMatch(entryImageName, targetImageName) {
+			return int(processEntry.ProcessID), true, nil
+		}
+
+		err = windows.Process32Next(snapshot, &processEntry)
+		if err != nil {
+			if errors.Is(err, windows.ERROR_NO_MORE_FILES) {
+				return 0, false, nil
+			}
+			return 0, false, fmt.Errorf("enumerate next process: %w", err)
+		}
+	}
+}
+
+// isProcessImageMatch performs a case-insensitive match on executable image names.
+func isProcessImageMatch(candidateImageName, targetImageName string) bool {
+	candidate := filepath.Base(strings.TrimSpace(candidateImageName))
+	target := filepath.Base(strings.TrimSpace(targetImageName))
+	if candidate == "" || target == "" {
+		return false
+	}
+	return strings.EqualFold(candidate, target)
 }

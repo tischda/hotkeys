@@ -7,13 +7,15 @@
 
 # hotkeys
 
-Starts a hotkey daemon that binds hotkeys such as `CTRL+A` to an action. The bindings
+Starts a hotkey daemon that binds hotkeys such as `ALT+ENTER` to an action. The bindings
 are defined in a TOML config file (hot-reload supported).
 
-The daemon should be run in user mode as a background process.
+The action processes executed by the daemon will obtain a refreshed environment (USER
+and SYSTEM variables updated).
 
-The processes executed by the daemon will inherit the current environment and update
-USER and SYSTEM environment variables from the Windows registry.
+When running with `--background`, the process is re-executed in a detached state without
+a console window. In that case, the parent process exits immediately and the detached
+child process will continue to run the server.
 
 ## Install
 
@@ -26,10 +28,13 @@ go install github.com/tischda/hotkeys@latest
 ~~~
 Usage: hotkeys [COMMAND] [OPTIONS]
 
+Starts a hotkey daemon that binds hotkeys such as ALT+ENTER to an action.
+The bindings are defined in a TOML config file (hot-reload supported).
+
 COMMANDS:
 
-  install [--force]  creates/updates a Task Scheduler logon entry
-  remove             removes the Task Scheduler logon entry
+  install [--force]  creates/updates a Task Scheduler entry
+  remove             removes the Task Scheduler entry
   status             shows Task Scheduler state (scheduled/running)
 
 OPTIONS:
@@ -38,6 +43,8 @@ OPTIONS:
         specify config file path (default '%USERPROFILE%\.config\hotkeys.toml')
   -l, --log path
         specify log output file path (default stdout)
+  -b, --background
+        start in background without a console window
   -?, --help
         display this help message
   -v, --version
@@ -154,7 +161,7 @@ action = [ "cmd", "/c", "wait.exe", "20" ]
 SUCCESS: Attempted to run the scheduled task "Hotkeys".
 
 ❯ hotkeys status
-Task 'Hotkeys' scheduled=yes status=Ready
+Task 'Hotkeys' scheduled=yes status=Ready, process Running (pid=11352)
 ~~~
 
 Here the ATTEMPT was successful, but the RESULT is a failure! The status is 'Ready'
