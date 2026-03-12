@@ -7,11 +7,11 @@
 
 # hotkeys
 
-Starts a hotkey daemon that binds hotkeys such as `ALT+ENTER` to an action. The bindings
+Hotkey daemon that binds hotkeys such as `ALT+ENTER` to an action. The bindings
 are defined in a TOML config file (hot-reload supported).
 
-The action processes executed by the daemon will obtain a refreshed environment (USER
-and SYSTEM variables updated).
+The action processes executed by the daemon will obtain a refreshed environment
+(updated USER and SYSTEM variables).
 
 When running with `--background`, the process is re-executed in a detached state without
 a console window. In that case, the parent process exits immediately and the detached
@@ -68,8 +68,7 @@ This will run interactively, as long as the console window remains open.
 
 ## Auto-start
 
-After a first version using Windows services, I realized that a better option would be
-to install a scheduled task that runs at logon:
+Install a scheduled task that runs at logon:
 
 ~~~
 hotkeys install --config=%USERPROFILE%\.config\hotkeys.toml --log=%TEMP%\hotkeys-task.log --force
@@ -95,11 +94,11 @@ Stop:
 ~~~
 hotkeys stop
 ~~~
-You can achieve the same with `taskkill /f /im hotkeys.exe`, but `hotkeys stop` stops
+You can achieve the same with `taskkill /f /im hotkeys.exe`, but `hotkeys stop` terminates
 the process gracefully so it can unregister bindings and close the log file.
 
 
-## Start / Stop
+## Status
 
 Show scheduled task and process status:
 ~~~
@@ -115,10 +114,10 @@ returns to `Ready` state and does not monitor the detached hotkeys process anymo
 
 By default, the hotkeys configuration file is loaded from: `%USERPROFILE%\.config\hotkeys.toml`.
 
-You can override the path for `hotkeys.toml` by setting the `HOTKEYS_CONFIG_HOME`
+You can override the configuration directory by setting the `HOTKEYS_CONFIG_HOME`
 environment variable, or by specifying the full path with the `--config` flag.
 
-The configuration is hot-reloaded on every change.
+The configuration is hot-reloaded on every change to the keybindings file.
 
 
 ## Keybindings file
@@ -171,7 +170,7 @@ action = [ "cmd", "/c", "wait.exe", "20" ]
 
 * When starting alacritty without `cmd /c`, all child terminals launched by hotkeys
   in console mode are killed when hotkeys is stopped. When hotkeys is executed with
-  `--background` (general use case), this problem does not occur.
+  `--background` (general use case), this issue does not occur.
 
 * When you execute `hotkeys install`, the absolute path to the `hotkeys.exe` binary
   is hard coded in the scheduled task. If you move the binary, the task won't start.
