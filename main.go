@@ -130,7 +130,7 @@ OPTIONS:
 		configPath = expandVariable(cfg.configPath)
 	}
 
-	// Handle Task Scheduler subcommands if present
+	// Handle commands, and subFlags if present
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "install":
@@ -142,7 +142,6 @@ OPTIONS:
 			if err := subFlags.Parse(os.Args[2:]); err != nil {
 				os.Exit(1)
 			}
-
 			if err := installStartupTask(TASK_NAME, configPath, cfg.logPath, force); err != nil {
 				log.Fatalf("install failed: %v", err)
 			}
@@ -185,7 +184,6 @@ OPTIONS:
 			if err != nil {
 				log.Fatalf("status failed: %v", err)
 			}
-
 			if !status.Scheduled {
 				log.Printf("Task '%s' scheduled=no", TASK_NAME)
 				return
@@ -194,12 +192,10 @@ OPTIONS:
 				log.Printf("Task '%s' scheduled=yes status=%s, process=Running (pid=%d)", TASK_NAME, status.Status, status.ProcessID)
 				return
 			}
-
 			log.Printf("Task '%s' scheduled=yes status=%s, process=Stopped", TASK_NAME, status.Status)
 			return
 		}
 	}
-
 	flag.Parse()
 
 	if flag.Arg(0) == "version" || cfg.version {
@@ -250,5 +246,6 @@ OPTIONS:
 			logFile.Close() //nolint:errcheck
 		}
 	}()
+
 	runServer()
 }

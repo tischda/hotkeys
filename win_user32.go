@@ -35,8 +35,6 @@ var (
 	getModuleHandleW = kernel32.NewProc("GetModuleHandleW")
 )
 
-const swHide = 0
-
 type MSG struct {
 	HWnd    uintptr
 	Message uint32
@@ -52,7 +50,7 @@ const WM_HOTKEY = 0x0312
 const WM_APP = 0x8000
 const WM_APP_RELOAD = WM_APP + 1
 const WM_APP_QUIT = WM_APP + 2
-const hotkeyWindowClassName = "HotkeyWindow"
+const HOTKEY_WINDOW_CLASS_NAME = "HotkeyWindow"
 
 type WNDCLASSEX struct {
 	Size       uint32
@@ -235,7 +233,7 @@ func signalGracefulStop() error {
 }
 
 func signalGracefulStopWindow() error {
-	className, err := syscall.UTF16PtrFromString(hotkeyWindowClassName)
+	className, err := syscall.UTF16PtrFromString(HOTKEY_WINDOW_CLASS_NAME)
 	if err != nil {
 		return fmt.Errorf("window class utf16: %w", err)
 	}

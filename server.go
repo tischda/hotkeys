@@ -15,7 +15,7 @@ func runServer() {
 	runtime.LockOSThread()
 
 	var err error
-	hwnd, err := createHiddenWindow(hotkeyWindowClassName)
+	hwnd, err := createHiddenWindow(HOTKEY_WINDOW_CLASS_NAME)
 	if err != nil {
 		logger.Fatalf("Failed to create hidden window: %v", err)
 	}
