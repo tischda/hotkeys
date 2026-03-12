@@ -1,13 +1,15 @@
 # Changelog
 
-## [v1.2.1] - 12 March 2026
+## [v1.3.0] - 12 March 2026
 
 * Add `--background` option for deamon startup:
     - scheduled task now re-starts as detached process and the task stops
     - console window is now hidden
     - fixes child processes killed when hotkeys exits
 
-* Improve status output to indicate hotkeys process ID
+* Add start/stop commands with graceful shutdown
+
+* Improve status output to indicate hotkeys process state and ID
 
 ## [v1.2.0] - 3 March 2026
 

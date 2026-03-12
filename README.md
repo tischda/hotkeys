@@ -17,11 +17,13 @@ When running with `--background`, the process is re-executed in a detached state
 a console window. In that case, the parent process exits immediately and the detached
 child process will continue to run the server.
 
+
 ## Install
 
 ~~~
 go install github.com/tischda/hotkeys@latest
 ~~~
+
 
 ## Usage
 
@@ -34,10 +36,10 @@ The bindings are defined in a TOML config file (hot-reload supported).
 COMMANDS:
 
   install [--force]  creates/updates a Task Scheduler entry
-  start              starts the scheduled Task Scheduler entry
-  stop               stops the running hotkeys process
   remove             removes the Task Scheduler entry
-  status             shows Task Scheduler state (scheduled/running)
+  start              starts the scheduled task
+  stop               stops the running hotkeys process
+  status             shows the scheduled task and process states
 
 OPTIONS:
 
@@ -53,6 +55,7 @@ OPTIONS:
         print version and exit
 ~~~
 
+
 ## Example
 
 Run with file logging:
@@ -60,29 +63,23 @@ Run with file logging:
 hotkeys --log=%TEMP%\hotkeys-console.log
 ~~~
 
-This will run interactively, but requires to leave this console window open.
+This will run interactively, as long as the console window remains open.
+
 
 ## Auto-start
 
-After a first version using Windows services, I came to the conclusion that a better option
-to start hotkeys with Windows is to setup a scheduled task named 'Hotkeys'.
+After a first version using Windows services, I realized that a better option would be
+to install a scheduled task that runs at logon:
 
-As an administrator, install a logon task (do not move `hotkeys.exe` after this):
 ~~~
-sudo hotkeys install --config=%USERPROFILE%\.config\hotkeys.toml --log=%TEMP%\hotkeys-task.log --force
+hotkeys install --config=%USERPROFILE%\.config\hotkeys.toml --log=%TEMP%\hotkeys-task.log --force
 ~~~
 
 Remove task:
 ~~~
-sudo hotkeys remove
+hotkeys remove
 ~~~
 
-Show task status:
-~~~
-hotkeys status
-~~~
-
-I am using gsudo here (`winget install -e --Id gerardog.gsudo`).
 
 ## Start / Stop
 
@@ -90,27 +87,39 @@ Once the scheduled task is configured, you can control is easily.
 
 Start:
 ~~~
-schtasks /Run /TN "Hotkeys"
+hotkeys start
 ~~~
+You can achieve the same with `schtasks /Run /TN "Hotkeys"` (but hard to remember).
 
 Stop:
 ~~~
-schtasks /End /TN "Hotkeys"
+hotkeys stop
+~~~
+You can achieve the same with `taskkill /f /im hotkeys.exe`, but `hotkeys stop` stops
+the process gracefully so it can unregister bindings and close the log file.
+
+
+## Start / Stop
+
+Show scheduled task and process status:
+~~~
+hotkeys status
+Task 'Hotkeys' scheduled=yes status=Ready, process=Running
 ~~~
 
-Verify:
-~~~
-schtasks /Query /TN "Hotkeys" /V /FO LIST
-~~~
+Remember, the scheduled task only starts the process once at logon. When done, it
+returns to `Ready` state and does not monitor the detached hotkeys process anymore.
+
 
 ## Configuration
 
 By default, the hotkeys configuration file is loaded from: `%USERPROFILE%\.config\hotkeys.toml`.
 
 You can override the path for `hotkeys.toml` by setting the `HOTKEYS_CONFIG_HOME`
-environment variable, or by specifying the full path with `--config`.
+environment variable, or by specifying the full path with the `--config` flag.
 
 The configuration is hot-reloaded on every change.
+
 
 ## Keybindings file
 
@@ -132,13 +141,18 @@ bindings = [
 
 In `action`, use single quotes to avoid issues with backslashes in file paths.
 
-## Known issues
 
-* When starting alacritty without `cmd /c`, all child terminals launched by hotkeys
-      are killed when the daemon is stopped (could not reproduce it with `notepad.exe`).
+## Additional notes
 
-* Some strange behaviour for console applications, eg. `action = [ "wait.exe", "20" ]`,
-  nothing seems to happen, but the process is actually running:
+* When hotkeys is already running, it won't start another instance. This is by design,
+  since you cannot register keybindings multiple times.
+  
+  Also keep this in mind when running the scheduled task: it will not restart an
+  already running hotkeys process. Use the hotkeys start/stop commands to manage the
+  process.
+
+* For some console applications, eg. `action = [ "wait.exe", "20" ]`, nothing seems
+  to happen, but the process is actually running:
 
 ~~~
 ❯ tasklist /FI "IMAGENAME eq wait.exe"
@@ -148,36 +162,13 @@ Image Name                     PID Session Name        Session#    Mem Usage
 wait.exe                     21452 Console                    1      6,620 K
 ~~~
 
-Workaround:
+This is normal since the hotkeys process itself is hidden. If you need to see console
+output, use this:
 
 ~~~
 action = [ "cmd", "/c", "wait.exe", "20" ]
 ~~~
 
-* When hotkeys is already running in a console, it won't start again as a scheduled
-  task. This is by design, since you cannot register keybindings multiple times.
-  But keep this in mind when troubleshooting task startup. Here is an example:
-
-~~~
-❯ schtasks /Run /TN "Hotkeys"
-SUCCESS: Attempted to run the scheduled task "Hotkeys".
-
-❯ hotkeys status
-Task 'Hotkeys' scheduled=yes status=Ready, process Running (pid=11352)
-~~~
-
-Here the ATTEMPT was successful, but the RESULT is a failure! The status is 'Ready'
-and not 'Running'. Let's see if another hotkeys process is live:
-
-~~~
-❯ tasklist /FI "IMAGENAME eq hotkeys.exe"
-
-Image Name                     PID Session Name        Session#    Mem Usage
-========================= ======== ================ =========== ============
-hotkeys.exe                  11352 Console                    1      4,204 K
-
-❯ taskkill /f /im hotkeys.exe
-SUCCESS: The process "hotkeys.exe" with PID 11352 has been terminated.
-~~~
-
-Now we cleaned up the process and we can start the scheduled task.
+* When starting alacritty without `cmd /c`, all child terminals launched by hotkeys
+  in console mode are killed when hotkeys is stopped. When hotkeys is executed with
+  `--background` (general use case), this problem does not occur.

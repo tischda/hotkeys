@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/signal"
+
 	"path/filepath"
-	"runtime"
+
 	"strings"
-	"syscall"
 )
 
 // default config file path containing the hotkey bindings
@@ -104,10 +103,10 @@ The bindings are defined in a TOML config file (hot-reload supported).
 COMMANDS:
 
   install [--force]  creates/updates a Task Scheduler entry
-  start              starts the scheduled Task Scheduler entry
-  stop               stops the running hotkeys process
   remove             removes the Task Scheduler entry
-  status             shows Task Scheduler state (scheduled/running)
+  start              starts the scheduled task
+  stop               stops the running hotkeys process
+  status             shows the scheduled task and process states
 
 OPTIONS:
 
@@ -158,14 +157,11 @@ OPTIONS:
 			return
 
 		case "start":
-			status, err := getStartupTaskStatus(TASK_NAME)
-			if err != nil {
-				log.Fatalf("start failed: %v", err)
+			status := validateTaskStatus()
+			if status.ProcessRunning {
+				log.Printf("Hotkeys process already running (pid=%d)", status.ProcessID)
+				return
 			}
-			if !status.Scheduled {
-				log.Fatalf("start failed: task '%s' is not installed; run '%s install' first", TASK_NAME, commandName())
-			}
-
 			if err := startStartupTask(TASK_NAME); err != nil {
 				log.Fatalf("start failed: %v", err)
 			}
@@ -173,22 +169,15 @@ OPTIONS:
 			return
 
 		case "stop":
-			status, err := getStartupTaskStatus(TASK_NAME)
-			if err != nil {
-				log.Fatalf("stop failed: %v", err)
-			}
-			if !status.Scheduled {
-				log.Fatalf("stop failed: task '%s' is not installed; run '%s install' first", TASK_NAME, commandName())
-			}
+			status := validateTaskStatus()
 			if !status.ProcessRunning {
-				log.Printf("Task '%s' process already stopped.", TASK_NAME)
+				log.Printf("Hotkeys process already stopped.")
 				return
 			}
-
 			if err := stopProcessGracefully(status.ProcessID); err != nil {
 				log.Fatalf("stop failed: %v", err)
 			}
-			log.Printf("Task '%s' stop signal sent to pid=%d.", TASK_NAME, status.ProcessID)
+			log.Printf("Stop signal sent to process pid=%d", status.ProcessID)
 			return
 
 		case "status":
@@ -262,49 +251,4 @@ OPTIONS:
 		}
 	}()
 	runServer()
-}
-
-// runServer is your actual server logic.
-func runServer() {
-	logger.Printf("Server starting ... ")
-	logger.Printf("%s %s, built on %s (commit: %s)", name, version, date, commit)
-
-	runtime.LockOSThread()
-
-	var err error
-	hwnd, err := createHiddenWindow(hotkeyWindowClassName)
-	if err != nil {
-		logger.Fatalf("Failed to create hidden window: %v", err)
-	}
-	defer destroyWindow.Call(uintptr(hwnd)) //nolint:errcheck
-
-	// Initial config load
-	if err := reloadHotkeys(hwnd); err != nil {
-		logger.Fatalf("Failed to load config %s: %v", configPath, err)
-	}
-
-	// Handle graceful shutdown on console/task stop signals.
-	interrupt := make(chan os.Signal, 1)
-	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
-	defer signal.Stop(interrupt)
-	go func() {
-		sig := <-interrupt
-		logger.Printf("Exiting on signal: %v", sig)
-		postMessageW.Call(hwnd, WM_APP_QUIT, 0, 0) //nolint:errcheck
-	}()
-
-	// Start config file watcher
-	watcher, err := startConfigWatcher(hwnd, configPath)
-	if err != nil {
-		logger.Printf("Config watcher disabled: %v", err)
-	}
-	if watcher != nil {
-		defer watcher.Close() //nolint:errcheck
-	}
-
-	// Listen for key presses
-	messageLoop()
-
-	// Cleanup
-	unregisterAll(hwnd)
 }
