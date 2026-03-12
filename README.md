@@ -172,3 +172,11 @@ action = [ "cmd", "/c", "wait.exe", "20" ]
 * When starting alacritty without `cmd /c`, all child terminals launched by hotkeys
   in console mode are killed when hotkeys is stopped. When hotkeys is executed with
   `--background` (general use case), this problem does not occur.
+
+* When you execute `hotkeys install`, the absolute path to the `hotkeys.exe` binary
+  is hard coded in the scheduled task. If you move the binary, the task won't start.
+  Check the registered path with:
+
+~~~
+schtasks /Query /TN "Hotkeys" /V /FO LIST
+~~~
