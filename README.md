@@ -14,7 +14,7 @@ The action processes executed by the daemon will obtain a refreshed environment
 (updated USER and SYSTEM variables).
 
 When running with `--background`, the process is re-executed in a detached state without
-a console window. In that case, the parent process exits immediately and the detached
+a console window. In that case, the parent process exits immediately, and the detached
 child process will continue to run the server.
 
 
@@ -117,7 +117,7 @@ By default, the hotkeys configuration file is loaded from: `%USERPROFILE%\.confi
 You can override the configuration directory by setting the `HOTKEYS_CONFIG_HOME`
 environment variable, or by specifying the full path with the `--config` flag.
 
-The configuration is hot-reloaded on every change to the keybindings file.
+The configuration is hot reloaded on every change to the keybindings file.
 
 
 ## Keybindings file
@@ -151,7 +151,7 @@ In `action`, use single quotes to avoid issues with backslashes in file paths.
   process.
 
 * For some console applications, eg. `action = [ "wait.exe", "20" ]`, nothing seems
-  to happen, but the process is actually running:
+  to happen, but the process is running:
 
 ~~~
 ❯ tasklist /FI "IMAGENAME eq wait.exe"
