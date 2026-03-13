@@ -1,5 +1,9 @@
 # Changelog
 
+## [v1.3.1] - 13 March 2026
+
+* Stop must not require hotkeys to be installed.
+
 ## [v1.3.0] - 12 March 2026
 
 * Add `--background` option for deamon startup:

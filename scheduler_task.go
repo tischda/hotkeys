@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"encoding/xml"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"os/user"
@@ -223,12 +222,8 @@ func getStartupTaskStatus(taskName string) (scheduledTaskStatus, error) {
 	}
 
 	statusValue := parseTaskStatus(output)
-	imageName := filepath.Base(os.Args[0])
-	if exePath, err := os.Executable(); err == nil {
-		imageName = filepath.Base(exePath)
-	}
 
-	pid, running, err := findRunningProcessID(imageName, os.Getpid())
+	pid, running, err := findRunningProcessID(IMAGE_NAME, os.Getpid())
 	if err != nil {
 		return scheduledTaskStatus{}, fmt.Errorf("query running process: %w", err)
 	}
@@ -239,17 +234,6 @@ func getStartupTaskStatus(taskName string) (scheduledTaskStatus, error) {
 		ProcessRunning: running,
 		ProcessID:      pid,
 	}, nil
-}
-
-func validateTaskStatus() scheduledTaskStatus {
-	status, err := getStartupTaskStatus(TASK_NAME)
-	if err != nil {
-		log.Fatalf("start failed: %v", err)
-	}
-	if !status.Scheduled {
-		log.Fatalf("start failed: task '%s' is not installed; run '%s install' first", TASK_NAME, commandName())
-	}
-	return status
 }
 
 // currentUsername returns the current Windows username for task principal creation.

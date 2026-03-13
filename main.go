@@ -21,6 +21,7 @@ const HOTKEYS_CONFIG_HOME_VAR = "HOTKEYS_CONFIG_HOME"
 
 // Task Scheduler name for the hotkeys startup task
 const TASK_NAME = "Hotkeys"
+const IMAGE_NAME = "hotkeys.exe"
 
 // https://goreleaser.com/cookbooks/using-main.version/
 var (
@@ -156,7 +157,13 @@ OPTIONS:
 			return
 
 		case "start":
-			status := validateTaskStatus()
+			status, err := getStartupTaskStatus(TASK_NAME)
+			if err != nil {
+				log.Fatalf("start failed: %v", err)
+			}
+			if !status.Scheduled {
+				log.Fatalf("start failed: task '%s' is not installed; run '%s install' first", TASK_NAME, commandName())
+			}
 			if status.ProcessRunning {
 				log.Printf("Hotkeys process already running (pid=%d)", status.ProcessID)
 				return
@@ -168,15 +175,18 @@ OPTIONS:
 			return
 
 		case "stop":
-			status := validateTaskStatus()
-			if !status.ProcessRunning {
+			pid, running, err := findRunningProcessID(IMAGE_NAME, os.Getpid())
+			if err != nil {
+				log.Fatalf("query running process: %v", err)
+			}
+			if !running {
 				log.Printf("Hotkeys process already stopped.")
 				return
 			}
-			if err := stopProcessGracefully(status.ProcessID); err != nil {
+			if err := stopProcessGracefully(pid); err != nil {
 				log.Fatalf("stop failed: %v", err)
 			}
-			log.Printf("Stop signal sent to process pid=%d", status.ProcessID)
+			log.Printf("Stop signal sent to process pid=%d", pid)
 			return
 
 		case "status":
